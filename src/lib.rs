@@ -14,9 +14,6 @@ enum ParseError {
 
     /// The input string has some invalid character sequence for given formatting items.
     Invalid,
-
-    /// All formatting items have been read but there is a remaining input.
-    TrailingCharacters,
 }
 
 impl std::error::Error for ParseError {}
