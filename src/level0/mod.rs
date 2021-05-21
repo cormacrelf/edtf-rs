@@ -34,7 +34,8 @@ use crate::ParseError;
 use core::num::NonZeroU8;
 
 mod parser;
-use parser::{UnvalidatedTime, UnvalidatedTz, ParsedEdtf};
+use parser::ParsedEdtf;
+use crate::common::{UnvalidatedTime, UnvalidatedTz};
 
 pub(crate) type Year = i32;
 pub(crate) type Month = Option<NonZeroU8>;
