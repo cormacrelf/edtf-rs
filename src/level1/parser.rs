@@ -11,7 +11,7 @@ use crate::ParseError;
 
 use super::packed::{
     Certainty::{self, *},
-    DMEnum, YearCertainty, YearMask,
+    DMEnum, YearFlags, YearMask,
 };
 
 impl super::Date {
@@ -27,7 +27,7 @@ impl super::Date {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct UnvalidatedDate {
-    pub year: (i32, YearCertainty),
+    pub year: (i32, YearFlags),
     pub month: Option<DMEnum>,
     pub day: Option<DMEnum>,
 }
@@ -57,7 +57,7 @@ fn certainty(input: &str) -> StrResult<Certainty> {
         .parse(input)
 }
 
-fn year_certainty(input: &str) -> StrResult<(i32, YearCertainty)> {
+fn year_certainty(input: &str) -> StrResult<(i32, YearFlags)> {
     let double_mask = year_n(2)
         .and_ignore(nbc::tag("XX"))
         .map(|i| (i * 100, YearMask::Two.into()));
@@ -80,7 +80,7 @@ fn two_digits_certainty(input: &str) -> StrResult<DMEnum> {
 mod test {
     use std::num::NonZeroU8;
 
-    use crate::level1::packed::{YearCertainty, YearMask};
+    use crate::level1::packed::{YearFlags, YearMask};
 
     use super::*;
 
@@ -106,7 +106,7 @@ mod test {
             Ok((
                 "",
                 UnvalidatedDate {
-                    year: (2019, YearCertainty::new(Uncertain, YearMask::None)),
+                    year: (2019, YearFlags::new(Uncertain, YearMask::None)),
                     month: None,
                     day: None,
                 }
@@ -118,7 +118,7 @@ mod test {
             Ok((
                 "",
                 UnvalidatedDate {
-                    year: (2019, YearCertainty::new(Uncertain, YearMask::None)),
+                    year: (2019, YearFlags::new(Uncertain, YearMask::None)),
                     month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Approximate)),
                     day: None,
                 }
@@ -132,7 +132,7 @@ mod test {
                 UnvalidatedDate {
                     year: (
                         2019,
-                        YearCertainty::new(ApproximateUncertain, YearMask::None)
+                        YearFlags::new(ApproximateUncertain, YearMask::None)
                     ),
                     month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
                     day: None,
@@ -145,7 +145,7 @@ mod test {
             Ok((
                 "",
                 UnvalidatedDate {
-                    year: (2019, YearCertainty::new(Certain, YearMask::None)),
+                    year: (2019, YearFlags::new(Certain, YearMask::None)),
                     month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
                     day: Some(DMEnum::Unmasked(NonZeroU8::new(9).unwrap(), Approximate)),
                 }
@@ -157,7 +157,7 @@ mod test {
             Ok((
                 "",
                 UnvalidatedDate {
-                    year: (2019, YearCertainty::new(Certain, YearMask::None)),
+                    year: (2019, YearFlags::new(Certain, YearMask::None)),
                     month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Certain)),
                     day: Some(DMEnum::Unmasked(NonZeroU8::new(9).unwrap(), Certain)),
                 }

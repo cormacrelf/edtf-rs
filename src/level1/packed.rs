@@ -117,37 +117,37 @@ impl From<u8> for Certainty {
 
 // 4 bits total
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct YearCertainty {
+pub struct YearFlags {
     pub(crate) certainty: Certainty,
     pub(crate) mask: YearMask,
 }
 
-impl YearCertainty {
+impl YearFlags {
     pub fn new(certainty: Certainty, mask: YearMask) -> Self {
         Self { certainty, mask }
     }
 }
-impl From<Certainty> for YearCertainty {
+impl From<Certainty> for YearFlags {
     fn from(certainty: Certainty) -> Self {
         Self { certainty, mask: YearMask::None }
     }
 }
-impl From<YearMask> for YearCertainty {
+impl From<YearMask> for YearFlags {
     fn from(mask: YearMask) -> Self {
         Self { certainty: Certainty::Certain, mask }
     }
 }
 
-impl From<YearCertainty> for u8 {
-    fn from(yc: YearCertainty) -> Self {
-        let YearCertainty { certainty, mask } = yc;
+impl From<YearFlags> for u8 {
+    fn from(yc: YearFlags) -> Self {
+        let YearFlags { certainty, mask } = yc;
         let cert = certainty as u8 & 0b11;
         let mask = (mask as u8 & 0b11) << 2;
         cert | mask
     }
 }
 
-impl From<u8> for YearCertainty {
+impl From<u8> for YearFlags {
     fn from(bits: u8) -> Self {
         let c_bits = bits & 0b11;
         let mask_bits = (bits & 0b1100) >> 2;
@@ -221,7 +221,7 @@ pub struct PackedYear(i32);
 
 impl PackedInt for PackedYear {
     type Inner = i32;
-    type Addendum = YearCertainty;
+    type Addendum = YearFlags;
     fn check_range_ok(inner: Self::Inner) -> bool {
         const MAX: i32 = i32::MAX >> 4;
         const MIN: i32 = i32::MIN >> 4;
@@ -229,7 +229,7 @@ impl PackedInt for PackedYear {
     }
     fn unpack(&self) -> (Self::Inner, Self::Addendum) {
         let inner = self.0 >> 4;
-        let addendum = YearCertainty::from((self.0 & 0b1111) as u8);
+        let addendum = YearFlags::from((self.0 & 0b1111) as u8);
         (inner, addendum)
     }
     fn pack_unchecked(inner: Self::Inner, addendum: Self::Addendum) -> Self {
@@ -287,7 +287,7 @@ impl<R: U8Range> PackedInt for PackedU8<R> {
 #[test]
 fn test_packed_year() {
     use Certainty::*;
-    fn roundtrip(a: i32, b: YearCertainty) {
+    fn roundtrip(a: i32, b: YearFlags) {
         let (aa, bb) = PackedYear::pack(a, b).expect("should be in range").unpack();
         assert_eq!((a, b), (aa, bb));
     }
