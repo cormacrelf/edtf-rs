@@ -3,6 +3,47 @@ use core::num::NonZeroU8;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
+pub enum YearMask {
+    /// `2019`
+    None = 0b00,
+    /// `201X`
+    One = 0b01,
+    /// `20XX`
+    Two = 0b10,
+}
+
+impl From<u8> for YearMask {
+    fn from(bits: u8) -> Self {
+        match bits {
+            0b00 => YearMask::None,
+            0b01 => YearMask::One,
+            0b10 => YearMask::Two,
+            _ => panic!("bit pattern {:b} out of range for YearMaskDigits", bits),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum DayMonthMask {
+    /// `2019-05`
+    None = 0,
+    /// `2019-XX`
+    Masked = 1,
+}
+
+impl From<u8> for DayMonthMask {
+    fn from(bits: u8) -> Self {
+        match bits {
+            0 => DayMonthMask::None,
+            1 => DayMonthMask::Masked,
+            _ => panic!("bit pattern {:b} out of range for DayMonthMask", bits),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Certainty {
     /// no modifier
     Certain = 0b00,
@@ -37,6 +78,92 @@ impl From<u8> for Certainty {
     }
 }
 
+// 4 bits total
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct YearCertainty {
+    certainty: Certainty,
+    mask: YearMask,
+}
+
+impl YearCertainty {
+    pub fn new(certainty: Certainty, mask: YearMask) -> Self {
+        Self { certainty, mask }
+    }
+}
+impl From<Certainty> for YearCertainty {
+    fn from(certainty: Certainty) -> Self {
+        Self { certainty, mask: YearMask::None }
+    }
+}
+impl From<YearMask> for YearCertainty {
+    fn from(mask: YearMask) -> Self {
+        Self { certainty: Certainty::Certain, mask }
+    }
+}
+
+impl From<YearCertainty> for u8 {
+    fn from(yc: YearCertainty) -> Self {
+        let YearCertainty { certainty, mask } = yc;
+        let cert = certainty as u8 & 0b11;
+        let mask = (mask as u8 & 0b11) << 2;
+        cert | mask
+    }
+}
+
+impl From<u8> for YearCertainty {
+    fn from(bits: u8) -> Self {
+        let c_bits = bits & 0b11;
+        let mask_bits = (bits & 0b1100) >> 2;
+        Self {
+            certainty: Certainty::from(c_bits),
+            mask: YearMask::from(mask_bits),
+        }
+    }
+}
+
+// 3 bits total
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct DayMonthCertainty {
+    certainty: Certainty,
+    mask: DayMonthMask,
+}
+
+impl DayMonthCertainty {
+    pub fn new(certainty: Certainty, mask: DayMonthMask) -> Self {
+        Self { certainty, mask }
+    }
+}
+impl From<Certainty> for DayMonthCertainty {
+    fn from(certainty: Certainty) -> Self {
+        Self { certainty, mask: DayMonthMask::None }
+    }
+}
+impl From<DayMonthMask> for DayMonthCertainty {
+    fn from(mask: DayMonthMask) -> Self {
+        Self { certainty: Certainty::Certain, mask }
+    }
+}
+
+impl From<DayMonthCertainty> for u8 {
+    fn from(dmc: DayMonthCertainty) -> Self {
+        let DayMonthCertainty { certainty, mask } = dmc;
+        let cert = certainty as u8 & 0b11;
+        let mask = (mask as u8 & 0b1) << 2;
+        cert | mask
+    }
+}
+
+impl From<u8> for DayMonthCertainty {
+    fn from(bits: u8) -> Self {
+        let c_bits = bits & 0b11;
+        let mask_bits = (bits & 0b100) >> 2;
+        Self {
+            certainty: Certainty::from(c_bits),
+            mask: DayMonthMask::from(mask_bits),
+        }
+    }
+}
+
 pub trait PackedInt {
     type Inner: Copy;
     type Addendum: Copy;
@@ -57,23 +184,21 @@ pub struct PackedYear(i32);
 
 impl PackedInt for PackedYear {
     type Inner = i32;
-    type Addendum = Certainty;
+    type Addendum = YearCertainty;
     fn check_range_ok(inner: Self::Inner) -> bool {
-        // 536870911
-        const MAX: i32 = i32::MAX >> 2;
-        // i32 can obviously be negative.
-        // with two's complement, this number is actually -536870912
-        const MIN: i32 = i32::MIN >> 2;
+        const MAX: i32 = i32::MAX >> 4;
+        const MIN: i32 = i32::MIN >> 4;
         inner >= MIN && inner <= MAX
     }
     fn unpack(&self) -> (Self::Inner, Self::Addendum) {
-        let inner = self.0 >> 2;
-        let addendum = Certainty::from((self.0 & 0b11) as u8);
+        let inner = self.0 >> 4;
+        let addendum = YearCertainty::from((self.0 & 0b1111) as u8);
         (inner, addendum)
     }
     fn pack_unchecked(inner: Self::Inner, addendum: Self::Addendum) -> Self {
-        let inner = inner << 2;
-        Self(inner | addendum.as_bits_i32())
+        let inner = inner << 4;
+        let addendum: u8 = addendum.into();
+        Self(inner | addendum as i32)
     }
 }
 
@@ -105,44 +230,45 @@ impl U8Range for DayRange {
 
 impl<R: U8Range> PackedInt for PackedU8<R> {
     type Inner = u8;
-    type Addendum = Certainty;
+    type Addendum = DayMonthCertainty;
     fn check_range_ok(inner: Self::Inner) -> bool {
-        // make sure it's nonzero
-        inner > 0 && R::includes(inner)
+        // make sure it's nonzero and not too big for the u8 as a whole
+        inner > 0 && inner <= u8::MAX >> 3 && R::includes(inner)
     }
     fn unpack(&self) -> (Self::Inner, Self::Addendum) {
-        let inner = self.0.get() >> 2;
-        let addendum = Certainty::from((self.0.get() & 0b11) as u8);
+        let inner = self.0.get() >> 3;
+        let addendum = DayMonthCertainty::from((self.0.get() & 0b111) as u8);
         (inner, addendum)
     }
     fn pack_unchecked(inner: Self::Inner, addendum: Self::Addendum) -> Self {
-        let inner = inner << 2;
-        Self(NonZeroU8::new(inner | addendum.as_bits_u8()).unwrap(), Default::default())
+        let inner = inner << 3;
+        let addendum: u8 = addendum.into();
+        Self(NonZeroU8::new(inner | addendum).unwrap(), Default::default())
     }
 }
 
 #[test]
 fn test_packed_year() {
     use Certainty::*;
-    fn roundtrip(a: i32, b: Certainty) {
+    fn roundtrip(a: i32, b: YearCertainty) {
         let (aa, bb) = PackedYear::pack(a, b).expect("should be in range").unpack();
         assert_eq!((a, b), (aa, bb));
     }
-    roundtrip(1995, Certain);
-    roundtrip(-1000, Uncertain);
-    roundtrip(-1000, ApproximateUncertain);
-    roundtrip(0, ApproximateUncertain);
-    roundtrip(-1, ApproximateUncertain);
+    roundtrip(1995, Certain.into());
+    roundtrip(-1000, Uncertain.into());
+    roundtrip(-1000, ApproximateUncertain.into());
+    roundtrip(0, ApproximateUncertain.into());
+    roundtrip(-1, ApproximateUncertain.into());
 }
 
 #[test]
 fn test_packed_month() {
     use Certainty::*;
-    fn roundtrip(a: u8, b: Certainty) {
+    use DayMonthMask as Mask;
+    fn roundtrip(a: u8, b: DayMonthCertainty) {
         let (aa, bb) = PackedU8::<MonthRange>::pack(a, b).expect("should be in range").unpack();
         assert_eq!((a, b), (aa, bb));
     }
-    roundtrip(1, Certain);
-    roundtrip(12, Uncertain);
-    roundtrip(21, ApproximateUncertain);
+    roundtrip(1, Certain.into());
+    roundtrip(12, Mask::Masked.into());
 }

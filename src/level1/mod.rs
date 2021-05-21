@@ -36,5 +36,52 @@
 //!
 //! `-1740`
 
-mod packed;
+use crate::ParseError;
+use crate::level0;
 
+use self::packed::{PackedInt, PackedDay, PackedMonth, PackedYear};
+use self::parser::UnvalidatedDate;
+
+mod packed;
+mod parser;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Date {
+    year: PackedYear,
+    month: Option<PackedMonth>,
+    day: Option<PackedDay>,
+}
+
+impl Date {
+    fn parse(input: &str) -> Result<Self, ParseError> {
+        Self::parse_inner(input).and_then(Self::validate)
+    }
+    fn validate(date: UnvalidatedDate) -> Result<Self, ParseError> {
+        let UnvalidatedDate { year, month, day } = date;
+        let level0 = level0::Date::from_ymd_opt(year.0, month.map_or(0, |x| x.0), day.map_or(0, |x| x.0));
+        if level0.is_some() {
+            let date = Date {
+                year: PackedYear::pack(year.0, year.1).ok_or(ParseError::OutOfRange)?,
+                month: month.map(|x| PackedMonth::pack(x.0, x.1).ok_or(ParseError::OutOfRange)).transpose()?,
+                day: day.map(|x| PackedDay::pack(x.0, x.1).ok_or(ParseError::OutOfRange)).transpose()?,
+            };
+            Ok(date)
+        } else {
+            Err(ParseError::OutOfRange)
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn uncertain_dates_packed() {
+        use self::packed::PackedInt;
+        let d = Date::parse("2019~-07~-05%").unwrap();
+        println!("{:?}", d.year.unpack());
+        println!("{:?}", d.month.as_ref().map(PackedInt::unpack));
+        println!("{:?}", d.day.as_ref().map(PackedInt::unpack));
+        println!("{:?}", std::mem::size_of_val(&d));
+    }
+}

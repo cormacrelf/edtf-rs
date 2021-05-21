@@ -10,6 +10,19 @@ use nom::{
 
 pub type StrResult<'a, T> = IResult<&'a str, T>;
 
+pub fn hyphen(input: &str) -> StrResult<()> {
+    let (remain, _) = ncc::char('-')(input)?;
+    Ok((remain, ()))
+}
+
+pub fn maybe_hyphen(remain: &str) -> (&str, bool) {
+    if remain.as_bytes().get(0).cloned() == Some(b'-') {
+        (&remain[1..], true)
+    } else {
+        (remain, false)
+    }
+}
+
 pub fn take_n_digits(n: usize) -> impl FnMut(&str) -> StrResult<&str> {
     move |remain| nbc::take_while_m_n(n, n, |x: char| x.is_ascii_digit())(remain)
 }
@@ -71,6 +84,7 @@ fn shift_hour(remain: &str) -> StrResult<UnvalidatedTz> {
         })
         .parse(remain)
 }
+
 /// `-04:30`
 fn shift_hour_minute(remain: &str) -> StrResult<UnvalidatedTz> {
     sign.and(two_digits::<u8>)

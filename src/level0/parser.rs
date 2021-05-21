@@ -10,7 +10,7 @@ use nom::{
 };
 
 use super::{Date, DateComplete, Edtf};
-use crate::common::{time, take_n_digits, two_digits, UnvalidatedTime, StrResult};
+use crate::common::{hyphen, maybe_hyphen, time, take_n_digits, two_digits, UnvalidatedTime, StrResult};
 
 impl Edtf {
     pub(crate) fn parse_inner(input: &str) -> Result<ParsedEdtf, ParseError> {
@@ -51,19 +51,6 @@ fn date_range(remain: &str) -> StrResult<(Date, Date)> {
     date.and_ignore(ncc::char('/'))
         .and(date)
         .parse(remain)
-}
-
-fn hyphen(input: &str) -> StrResult<()> {
-    let (remain, _) = ncc::char('-')(input)?;
-    Ok((remain, ()))
-}
-
-fn maybe_hyphen(remain: &str) -> (&str, bool) {
-    if remain.as_bytes().get(0).cloned() == Some(b'-') {
-        (&remain[1..], true)
-    } else {
-        (remain, false)
-    }
 }
 
 /// [date_complete] or one of the reduced precision variants
