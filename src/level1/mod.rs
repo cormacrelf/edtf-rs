@@ -103,10 +103,6 @@ mod test {
         println!("{:?}", d.month);
         println!("{:?}", d.day);
         println!("{:?}", std::mem::size_of_val(&d));
-        // turns out don't need quite as much packing on the month and day,
-        // because in [32, x], x can be up to 32 bits before causing the whole struct's size to
-        // bump up beyond 64 bits. So each of month and day has 16 bits to use, each value fits in
-        // 8 bits, and so each one's flags can have 8 bits to itself.
         println!("{:?}", std::mem::size_of::<UnvalidatedDate>());
     }
 
@@ -132,4 +128,24 @@ mod test {
         assert!(Date::parse("2019-0X-00").is_err());
         assert!(Date::parse("2019-0X-XX").is_err());
     }
+
+    #[test]
+    fn invalid_calendar_dates() {
+        assert_eq!(Date::parse("2019-13"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("2019-99"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("2019-04-40"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("2019-04-00"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("2019-00-00"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("2019-00-01"), Err(ParseError::OutOfRange));
+        // well, year 0 is fine. It's just 1BCE.
+        assert_eq!(Date::parse("0000-00-00"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("0000-10-00"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("0000-10-10"), Err(ParseError::OutOfRange));
+    }
+
+    #[test]
+    fn invalid_season_combo() {
+        assert!(Date::parse("2019-21-05").is_err());
+    }
+
 }

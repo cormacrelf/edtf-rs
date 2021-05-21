@@ -1,10 +1,10 @@
 use core::marker::PhantomData;
 use core::num::NonZeroU8;
 
-/// /////////////////
-/// TODO : use this for days and months instead, because it's still u16 sized and that is
-/// acceptable when you're adding two of these to an i32 field. Doesn't need to be packed into 8
-/// bits.
+// turns out don't need quite as much packing on the month and day, because in struct [32, x], x
+// can be up to 32 bits before causing the whole struct's size to bump up beyond 64 bits. So each
+// of month and day has 16 bits to use, each value fits in 8 bits, and so each one's flags can have
+// 8 bits to itself.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DMEnum {
     Masked,
@@ -158,49 +158,6 @@ impl From<u8> for YearFlags {
     }
 }
 
-// 3 bits total
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct DayMonthCertainty {
-    pub(crate) certainty: Certainty,
-    pub(crate) mask: DayMonthMask,
-}
-
-impl DayMonthCertainty {
-    pub fn new(certainty: Certainty, mask: DayMonthMask) -> Self {
-        Self { certainty, mask }
-    }
-}
-impl From<Certainty> for DayMonthCertainty {
-    fn from(certainty: Certainty) -> Self {
-        Self { certainty, mask: DayMonthMask::None }
-    }
-}
-impl From<DayMonthMask> for DayMonthCertainty {
-    fn from(mask: DayMonthMask) -> Self {
-        Self { certainty: Certainty::Certain, mask }
-    }
-}
-
-impl From<DayMonthCertainty> for u8 {
-    fn from(dmc: DayMonthCertainty) -> Self {
-        let DayMonthCertainty { certainty, mask } = dmc;
-        let cert = certainty as u8 & 0b11;
-        let mask = (mask as u8 & 0b1) << 2;
-        cert | mask
-    }
-}
-
-impl From<u8> for DayMonthCertainty {
-    fn from(bits: u8) -> Self {
-        let c_bits = bits & 0b11;
-        let mask_bits = (bits & 0b100) >> 2;
-        Self {
-            certainty: Certainty::from(c_bits),
-            mask: DayMonthMask::from(mask_bits),
-        }
-    }
-}
-
 pub trait PackedInt {
     type Inner: Copy;
     type Addendum: Copy;
@@ -243,16 +200,12 @@ impl PackedInt for PackedYear {
 #[repr(transparent)]
 pub struct PackedU8<R>(NonZeroU8, PhantomData<R>);
 
-pub type PackedDay = PackedU8<DayRange>;
-pub type PackedMonth = PackedU8<MonthRange>;
-
-
 pub trait U8Range {
     fn includes(int: u8) -> bool;
 }
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct MonthRange;
-impl U8Range for MonthRange {
+pub struct MonthSeasonRange;
+impl U8Range for MonthSeasonRange {
     fn includes(int: u8) -> bool {
         (int >= 1 && int <= 12) || (int >= 21 && int <= 24)
     }
@@ -262,25 +215,6 @@ pub struct DayRange;
 impl U8Range for DayRange {
     fn includes(int: u8) -> bool {
         int >= 1 && int <= 31
-    }
-}
-
-impl<R: U8Range> PackedInt for PackedU8<R> {
-    type Inner = u8;
-    type Addendum = DayMonthCertainty;
-    fn check_range_ok(inner: Self::Inner) -> bool {
-        // make sure it's nonzero and not too big for the u8 as a whole
-        inner > 0 && inner <= u8::MAX >> 3 && R::includes(inner)
-    }
-    fn unpack(&self) -> (Self::Inner, Self::Addendum) {
-        let inner = self.0.get() >> 3;
-        let addendum = DayMonthCertainty::from((self.0.get() & 0b111) as u8);
-        (inner, addendum)
-    }
-    fn pack_unchecked(inner: Self::Inner, addendum: Self::Addendum) -> Self {
-        let inner = inner << 3;
-        let addendum: u8 = addendum.into();
-        Self(NonZeroU8::new(inner | addendum).unwrap(), Default::default())
     }
 }
 
@@ -298,14 +232,3 @@ fn test_packed_year() {
     roundtrip(-1, ApproximateUncertain.into());
 }
 
-#[test]
-fn test_packed_month() {
-    use Certainty::*;
-    use DayMonthMask as Mask;
-    fn roundtrip(a: u8, b: DayMonthCertainty) {
-        let (aa, bb) = PackedU8::<MonthRange>::pack(a, b).expect("should be in range").unpack();
-        assert_eq!((a, b), (aa, bb));
-    }
-    roundtrip(1, Certain.into());
-    roundtrip(12, Mask::Masked.into());
-}
