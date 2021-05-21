@@ -69,7 +69,7 @@ fn year_certainty(input: &str) -> StrResult<(i32, YearCertainty)> {
 }
 
 fn two_digits_certainty(input: &str) -> StrResult<(u8, DMCertainty)> {
-    let masked = nbc::tag("XX").map(|_| (0, DMMask::Masked.into()));
+    let masked = nbc::tag("XX").map(|_| (1, DMMask::Masked.into()));
     let dig_cert = two_digits::<u8>.and(certainty.map(DMCertainty::from));
     masked.or(dig_cert).parse(input)
 }
@@ -84,7 +84,24 @@ mod test {
     use super::UnvalidatedDate;
 
     #[test]
+    fn unspecified_date() {
+
+        assert_eq!(
+            super::date_certainty("2019-XX"),
+            Ok((
+                "",
+                UnvalidatedDate {
+                    year: (2019, Certain.into()),
+                    month: Some((1, DMMask::Masked.into())),
+                    day: None,
+                }
+            ))
+        );
+    }
+
+    #[test]
     fn uncertain_date() {
+
         assert_eq!(
             super::date_certainty("2019?"),
             Ok((

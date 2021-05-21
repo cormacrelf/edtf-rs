@@ -1,6 +1,21 @@
 use core::marker::PhantomData;
 use core::num::NonZeroU8;
 
+/// /////////////////
+/// TODO : use this for days and months instead, because it's still u16 sized and that is
+/// acceptable when you're adding two of these to an i32 field. Doesn't need to be packed into 8
+/// bits.
+enum DMEnum {
+    Masked,
+    Unmasked(NonZeroU8, Certainty)
+}
+#[test]
+fn test_enumday_size() {
+    struct InContext(PackedYear, Option<DMEnum>, Option<DMEnum>);
+    assert_eq!(std::mem::size_of::<Option<DMEnum>>(), 2);
+    assert_eq!(std::mem::size_of::<InContext>(), 8);
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum YearMask {
@@ -81,8 +96,8 @@ impl From<u8> for Certainty {
 // 4 bits total
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct YearCertainty {
-    certainty: Certainty,
-    mask: YearMask,
+    pub(crate) certainty: Certainty,
+    pub(crate) mask: YearMask,
 }
 
 impl YearCertainty {
@@ -124,8 +139,8 @@ impl From<u8> for YearCertainty {
 // 3 bits total
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct DayMonthCertainty {
-    certainty: Certainty,
-    mask: DayMonthMask,
+    pub(crate) certainty: Certainty,
+    pub(crate) mask: DayMonthMask,
 }
 
 impl DayMonthCertainty {
@@ -178,7 +193,7 @@ pub trait PackedInt {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct PackedYear(i32);
 
@@ -202,7 +217,7 @@ impl PackedInt for PackedYear {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct PackedU8<R>(NonZeroU8, PhantomData<R>);
 
