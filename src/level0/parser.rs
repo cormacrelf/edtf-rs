@@ -25,8 +25,7 @@ impl Edtf {
 
 impl Date {
     pub(crate) fn parse_inner(input: &str) -> Result<Self, ParseError> {
-        date
-            .complete()
+        date.complete()
             .parse(input)
             .map(|(_, a)| a)
             .map_err(|_| ParseError::Invalid)
