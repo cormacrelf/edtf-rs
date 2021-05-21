@@ -1,4 +1,32 @@
-#![allow(dead_code)]
+//! # Level 0
+//!
+//! [EDTF Specification](https://www.loc.gov/standards/datetime/), February 4, 2019
+//!
+//! ## Date only
+//!
+//! | Format                            | Example      | Name              |
+//! | ------                            | -------      | ---               |
+//! | `[year]-[month]-[day]`            | `1985-04-12` | `[date_complete]` |
+//! | `[year]-[month]`                  | `1985-04`    |                   |
+//! | `[year]`                          | `1985`       |                   |
+//!
+//! ## Date + Time
+//!
+//! | Format                                     | Example                     |
+//! | ------                                     | -------                     |
+//! | `[date_complete]T[time]`                   | `1985-04-12T23:20:30`       |
+//! | `[date_complete]T[time]Z`                  | `1985-04-12T23:20:30Z`      |
+//! | `[date_complete]T[time][shift_hour]`       | `1985-04-12T23:20:30-04`    |
+//! | `[date_complete]T[time][shift_hour_minute]`| `1985-04-12T23:20:30+04:30` |
+//!
+//! ## Time Interval (should probably be called 'Date interval'!)
+//!
+//! The format is `[date]/[date]`.
+//!
+//! | Format          | Example |
+//! | ------          | ------- |
+//! | `[date]/[date]` | `1964/2008`<br> `2004-06/2006-08` <br> `2004-02-01/2005-02-08` <br> `2004-02-01/2005-02` <br> etc |
+//!
 
 use crate::helpers::is_leap_year;
 use crate::ParseError;
@@ -12,37 +40,6 @@ pub(crate) type Year = i32;
 pub(crate) type Month = Option<NonZeroU8>;
 pub(crate) type Day = Option<NonZeroU8>;
 
-/// # Level 0
-///
-/// [EDTF Specification](https://www.loc.gov/standards/datetime/), February 4, 2019
-///
-/// Level 0 is also described in ISO 8601-1, but that costs a few hundred dollars to read.
-///
-/// ## Date only
-///
-/// | Format                            | Example      | API                                 |
-/// | ------                            | -------      | ---                                 |
-/// | `[year]-[month]-[day]`            | `1985-04-12` | [date_complete]                     |
-/// | `[year]-[month]`                  | `1985-04`    |                                     |
-/// | `[year]`                          | `1985`       |                                     |
-///
-/// ## Date + Time
-///
-/// | Format                                     | Example                     |
-/// | ------                                     | -------                     |
-/// | `[date_complete]T[time]`                   | `1985-04-12T23:20:30`       |
-/// | `[date_complete]T[time]Z`                  | `1985-04-12T23:20:30Z`      |
-/// | `[date_complete]T[time][shift_hour]`       | `1985-04-12T23:20:30-04`    |
-/// | `[date_complete]T[time][shift_hour_minute]`| `1985-04-12T23:20:30+04:30` |
-///
-/// ## Time Interval (should probably be called 'Date interval'!)
-///
-/// The format is `[date]/[date]`.
-///
-/// | Format          | Example |
-/// | ------          | ------- |
-/// | `[date]/[date]` | `1964/2008`<br> `2004-06/2006-08` <br> `2004-02-01/2005-02-08` <br> `2004-02-01/2005-02` <br> etc |
-///
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Edtf {
     Date(Date),
