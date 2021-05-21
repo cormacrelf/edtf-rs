@@ -5,13 +5,13 @@ use nom::{
     Parser,
 };
 
-use crate::ParseError;
-use crate::common::{hyphen, two_digits, StrResult, year_n};
+use crate::common::{hyphen, two_digits, year_n, StrResult};
 use crate::helpers::ParserExt;
+use crate::ParseError;
 
 use super::packed::{
     Certainty::{self, *},
-    DayMonthCertainty as DMCertainty, DayMonthMask as DMMask, YearCertainty, YearMask,
+    DMEnum, YearCertainty, YearMask,
 };
 
 impl super::Date {
@@ -28,8 +28,8 @@ impl super::Date {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct UnvalidatedDate {
     pub year: (i32, YearCertainty),
-    pub month: Option<(u8, DMCertainty)>,
-    pub day: Option<(u8, DMCertainty)>,
+    pub month: Option<DMEnum>,
+    pub day: Option<DMEnum>,
 }
 
 pub(crate) fn date_certainty(input: &str) -> StrResult<UnvalidatedDate> {
@@ -68,31 +68,31 @@ fn year_certainty(input: &str) -> StrResult<(i32, YearCertainty)> {
     double_mask.or(single_mask).or(dig_cert).parse(input)
 }
 
-fn two_digits_certainty(input: &str) -> StrResult<(u8, DMCertainty)> {
-    let masked = nbc::tag("XX").map(|_| (1, DMMask::Masked.into()));
-    let dig_cert = two_digits::<u8>.and(certainty.map(DMCertainty::from));
+fn two_digits_certainty(input: &str) -> StrResult<DMEnum> {
+    let masked = nbc::tag("XX").map(|_| DMEnum::Masked);
+    let dig_cert = two_digits
+        .and(certainty)
+        .map(|x| DMEnum::Unmasked(x.0, x.1));
     masked.or(dig_cert).parse(input)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::level1::packed::{
-        Certainty::*, DayMonthCertainty as DMCertainty, DayMonthMask as DMMask, YearCertainty,
-        YearMask,
-    };
+    use std::num::NonZeroU8;
 
-    use super::UnvalidatedDate;
+    use crate::level1::packed::{YearCertainty, YearMask};
+
+    use super::*;
 
     #[test]
     fn unspecified_date() {
-
         assert_eq!(
             super::date_certainty("2019-XX"),
             Ok((
                 "",
                 UnvalidatedDate {
                     year: (2019, Certain.into()),
-                    month: Some((1, DMMask::Masked.into())),
+                    month: Some(DMEnum::Masked),
                     day: None,
                 }
             ))
@@ -101,7 +101,6 @@ mod test {
 
     #[test]
     fn uncertain_date() {
-
         assert_eq!(
             super::date_certainty("2019?"),
             Ok((
@@ -120,7 +119,7 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearCertainty::new(Uncertain, YearMask::None)),
-                    month: Some((5, DMCertainty::new(Approximate, DMMask::None))),
+                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Approximate)),
                     day: None,
                 }
             ))
@@ -131,8 +130,11 @@ mod test {
             Ok((
                 "",
                 UnvalidatedDate {
-                    year: (2019, YearCertainty::new(ApproximateUncertain, YearMask::None)),
-                    month: Some((5, DMCertainty::new(Uncertain, DMMask::None))),
+                    year: (
+                        2019,
+                        YearCertainty::new(ApproximateUncertain, YearMask::None)
+                    ),
+                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
                     day: None,
                 }
             ))
@@ -144,8 +146,8 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearCertainty::new(Certain, YearMask::None)),
-                    month: Some((5, DMCertainty::new(Uncertain, DMMask::None))),
-                    day: Some((9, DMCertainty::new(Approximate, DMMask::None))),
+                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
+                    day: Some(DMEnum::Unmasked(NonZeroU8::new(9).unwrap(), Approximate)),
                 }
             ))
         );
@@ -156,11 +158,10 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearCertainty::new(Certain, YearMask::None)),
-                    month: Some((5, DMCertainty::new(Certain, DMMask::None))),
-                    day: Some((9, DMCertainty::new(Certain, DMMask::None))),
+                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Certain)),
+                    day: Some(DMEnum::Unmasked(NonZeroU8::new(9).unwrap(), Certain)),
                 }
             ))
         );
-
     }
 }

@@ -40,7 +40,8 @@ use crate::level0;
 use crate::ParseError;
 
 use self::packed::{
-    DayMonthCertainty, DayMonthMask, PackedDay, PackedInt, PackedMonth, PackedYear, YearMask,
+    DMEnum, PackedInt, PackedYear,
+    YearMask,
 };
 use self::parser::UnvalidatedDate;
 
@@ -50,12 +51,8 @@ mod parser;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Date {
     year: PackedYear,
-    month: Option<PackedMonth>,
-    day: Option<PackedDay>,
-}
-
-fn dm_has_mask(x: (u8, DayMonthCertainty)) -> bool {
-    x.1.mask != DayMonthMask::None
+    month: Option<DMEnum>,
+    day: Option<DMEnum>,
 }
 
 impl Date {
@@ -64,8 +61,11 @@ impl Date {
     }
     fn validate(date: UnvalidatedDate) -> Result<Self, ParseError> {
         let UnvalidatedDate { year, month, day } = date;
-        let level0 =
-            level0::Date::from_ymd_opt(year.0, month.map_or(0, |x| x.0), day.map_or(0, |x| x.0));
+        let level0 = level0::Date::from_ymd_opt(
+            year.0,
+            month.as_ref().and_then(DMEnum::value).unwrap_or(0),
+            day.as_ref().and_then(DMEnum::value).unwrap_or(0),
+        );
         if level0.is_none() {
             return Err(ParseError::OutOfRange);
         }
@@ -79,18 +79,14 @@ impl Date {
                 return Err(ParseError::Invalid);
             }
         } else if let (Some(m), Some(d)) = (month, day) {
-            if dm_has_mask(m) && !dm_has_mask(d) {
-                return Err(ParseError::Invalid)
+            if m.is_masked() && !d.is_masked() {
+                return Err(ParseError::Invalid);
             }
         }
         let date = Date {
             year: PackedYear::pack(year.0, year.1).ok_or(ParseError::OutOfRange)?,
-            month: month
-                .map(|x| PackedMonth::pack(x.0, x.1).ok_or(ParseError::OutOfRange))
-                .transpose()?,
-            day: day
-                .map(|x| PackedDay::pack(x.0, x.1).ok_or(ParseError::OutOfRange))
-                .transpose()?,
+            month,
+            day,
         };
         Ok(date)
     }
@@ -104,8 +100,8 @@ mod test {
         use self::packed::PackedInt;
         let d = Date::parse("2019~-07~-05%").unwrap();
         println!("{:?}", d.year.unpack());
-        println!("{:?}", d.month.as_ref().map(PackedInt::unpack));
-        println!("{:?}", d.day.as_ref().map(PackedInt::unpack));
+        println!("{:?}", d.month);
+        println!("{:?}", d.day);
         println!("{:?}", std::mem::size_of_val(&d));
         // turns out don't need quite as much packing on the month and day,
         // because in [32, x], x can be up to 32 bits before causing the whole struct's size to

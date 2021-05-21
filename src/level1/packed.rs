@@ -5,7 +5,8 @@ use core::num::NonZeroU8;
 /// TODO : use this for days and months instead, because it's still u16 sized and that is
 /// acceptable when you're adding two of these to an i32 field. Doesn't need to be packed into 8
 /// bits.
-enum DMEnum {
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum DMEnum {
     Masked,
     Unmasked(NonZeroU8, Certainty)
 }
@@ -14,6 +15,27 @@ fn test_enumday_size() {
     struct InContext(PackedYear, Option<DMEnum>, Option<DMEnum>);
     assert_eq!(std::mem::size_of::<Option<DMEnum>>(), 2);
     assert_eq!(std::mem::size_of::<InContext>(), 8);
+}
+
+impl DMEnum {
+    pub(crate) fn value(&self) -> Option<u8> {
+        match self {
+            Self::Masked => None,
+            Self::Unmasked(v, _c) => Some(v.get()),
+        }
+    }
+    pub(crate) fn certainty(&self) -> Option<Certainty> {
+        match self {
+            Self::Masked => None,
+            Self::Unmasked(_v, c) => Some(*c),
+        }
+    }
+    pub(crate) fn is_masked(&self) -> bool {
+        match self {
+            Self::Masked => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
