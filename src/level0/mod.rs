@@ -35,7 +35,7 @@ use core::num::NonZeroU8;
 
 mod parser;
 use parser::ParsedEdtf;
-use crate::common::{UnvalidatedTime, UnvalidatedTz};
+use crate::common::{DateComplete, UnvalidatedTime, UnvalidatedTz};
 
 pub(crate) type Year = i32;
 pub(crate) type Month = Option<NonZeroU8>;
@@ -53,13 +53,6 @@ pub struct Date {
     year: Year,
     month: Month,
     day: Day,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct DateComplete {
-    year: Year,
-    month: NonZeroU8,
-    day: NonZeroU8,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

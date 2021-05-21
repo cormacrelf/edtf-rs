@@ -6,7 +6,7 @@ use nom::{
 };
 
 use crate::ParseError;
-use crate::common::{hyphen, take_n_digits, two_digits, StrResult};
+use crate::common::{hyphen, two_digits, StrResult, year_n};
 use crate::helpers::ParserExt;
 
 use super::packed::{
@@ -55,14 +55,6 @@ fn certainty(input: &str) -> StrResult<Certainty> {
         .optional()
         .map(|o| o.map_or(Certain, |x| x))
         .parse(input)
-}
-
-fn year_n(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
-    move |remain| {
-        let (remain, four) = take_n_digits(n)(remain)?;
-        let (_, parsed) = nom::parse_to!(four, i32)?;
-        Ok((remain, parsed))
-    }
 }
 
 fn year_certainty(input: &str) -> StrResult<(i32, YearCertainty)> {

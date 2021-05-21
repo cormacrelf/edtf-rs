@@ -1,3 +1,4 @@
+use core::num::NonZeroU8;
 use crate::helpers::ParserExt;
 use core::str::FromStr;
 
@@ -7,6 +8,13 @@ use nom::{
     combinator as nc, error::ParseError as NomParseError, sequence as ns, Finish, IResult, ParseTo,
     Parser,
 };
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct DateComplete {
+    pub(crate) year: i32,
+    pub(crate) month: NonZeroU8,
+    pub(crate) day: NonZeroU8,
+}
 
 pub type StrResult<'a, T> = IResult<&'a str, T>;
 
@@ -50,8 +58,35 @@ pub enum UnvalidatedTz {
     Offset { positive: bool, hh: u8, mm: u8 },
 }
 
+pub fn year_n(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
+    move |remain| {
+        let (remain, four) = take_n_digits(n)(remain)?;
+        let (_, parsed) = nom::parse_to!(four, i32)?;
+        Ok((remain, parsed))
+    }
+}
+
+/// Level 0 only, YYYY-mm-dd only.
+pub fn date_complete(remain: &str) -> StrResult<DateComplete> {
+    year_n(4)
+        .and_ignore(hyphen)
+        .and(two_digits)
+        .and_ignore(hyphen)
+        .and(two_digits)
+        .map(|((year, month), day)| DateComplete { year, month, day })
+        .parse(remain)
+}
+
+/// [date_complete] + `T[time]` + :complete::is timezone info.
+pub fn date_time(remain: &str) -> StrResult<(DateComplete, UnvalidatedTime)> {
+    date_complete
+        .and_ignore(ncc::char('T'))
+        .and(time)
+        .parse(remain)
+}
+
 /// no T, HH:MM:SS and an optional offset
-pub fn time(remain: &str) -> StrResult<UnvalidatedTime> {
+fn time(remain: &str) -> StrResult<UnvalidatedTime> {
     two_digits
         .and_ignore(ncc::char(':'))
         .and(two_digits::<u8>)

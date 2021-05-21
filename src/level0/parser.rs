@@ -10,7 +10,7 @@ use nom::{
 };
 
 use super::{Date, DateComplete, Edtf};
-use crate::common::{hyphen, maybe_hyphen, time, take_n_digits, two_digits, UnvalidatedTime, StrResult};
+use crate::common::{date_time, maybe_hyphen, take_n_digits, two_digits, UnvalidatedTime, StrResult};
 
 impl Edtf {
     pub(crate) fn parse_inner(input: &str) -> Result<ParsedEdtf, ParseError> {
@@ -70,40 +70,11 @@ pub(crate) fn date(remain: &str) -> StrResult<Date> {
     Ok((remain, Date::new_unvalidated(year, Some(month), Some(day))))
 }
 
-/// Level 0 only, YYYY-mm-dd only.
-pub(crate) fn date_complete(remain: &str) -> StrResult<DateComplete> {
-    year4
-        .and_ignore(hyphen)
-        .and(two_digits)
-        .and_ignore(hyphen)
-        .and(two_digits)
-        .map(|((year, month), day)| DateComplete { year, month, day })
-        .parse(remain)
-}
-
 /// Level 0 year only, so simply exactly four digits 0-9. That's it.
 fn year4(remain: &str) -> StrResult<i32> {
     let (remain, four) = take_n_digits(4)(remain)?;
     let (_, parsed) = nom::parse_to!(four, i32)?;
     Ok((remain, parsed))
-}
-
-// /// no T, HH:MM:SS and an optional offset
-// fn time(remain: &str) -> StrResult<(u8, u8, u8, Option<TzOffset>)> {
-//     let (remain, hours) = two_digits(remain)?;
-//     let (remain, _) = ncc::char(':')(remain)?;
-//     let (remain, minutes) = two_digits(remain)?;
-//     let (remain, _) = ncc::char(':')(remain)?;
-//     let (remain, seconds) = two_digits(remain)?;
-//     Ok((remain, (hours, minutes, seconds, offset)))
-// }
-
-/// [date_complete] + `T[time]` + :complete::is timezone info.
-fn date_time(remain: &str) -> StrResult<(DateComplete, UnvalidatedTime)> {
-    date_complete
-        .and_ignore(ncc::char('T'))
-        .and(time)
-        .parse(remain)
 }
 
 #[cfg(test)]
