@@ -220,9 +220,9 @@ impl From<u8> for DMFlags {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct PackedDM(NonZeroU8);
+pub struct PackedU8(NonZeroU8);
 
-impl PackedInt for PackedDM {
+impl PackedInt for PackedU8 {
     type Inner = u8;
     type Addendum = DMFlags;
     fn check_range_ok(inner: Self::Inner) -> bool {
@@ -261,7 +261,7 @@ fn test_packed_month_day() {
     use Certainty::*;
     use DMMask as Mask;
     fn roundtrip(a: u8, b: DMFlags) {
-        let (aa, bb) = PackedDM::pack(a, b).expect("should be in range").unpack();
+        let (aa, bb) = PackedU8::pack(a, b).expect("should be in range").unpack();
         assert_eq!((a, b), (aa, bb));
     }
     roundtrip(1, Certain.into());
@@ -276,6 +276,6 @@ fn test_packed_month_day() {
 fn test_packed_size() {
     use core::mem::size_of;
     assert_eq!(size_of::<PackedYear>(), 4);
-    assert_eq!(size_of::<(PackedYear, PackedDM, PackedDM)>(), 8);
+    assert_eq!(size_of::<(PackedYear, PackedU8, PackedU8)>(), 8);
 }
 

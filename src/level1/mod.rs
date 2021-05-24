@@ -9,7 +9,10 @@
 //! - 'Y170000002' is the year 170000002
 //! - 'Y-170000002' is the year -170000002
 //!
-//! ## Seasons
+//! ## Seasons ✅
+//!
+//! Using Spring=21, Summer=22, Autumn=23, Winter=24.
+//!
 //! ## Qualification of a date (complete)
 //!
 //! > The characters '?', '~' and '%' are used to mean "uncertain", "approximate", and "uncertain"
@@ -40,7 +43,7 @@ use crate::common::is_valid_complete_date;
 use crate::ParseError;
 use ParseError::*;
 
-use self::{packed::{DMFlags, DMMask, PackedInt, PackedDM, PackedYear, YearMask}, parser::UnvalidatedDMEnum};
+use self::{packed::{DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask}, parser::UnvalidatedDMEnum};
 use self::parser::UnvalidatedDate;
 
 pub mod api;
@@ -50,13 +53,13 @@ mod parser;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Date {
     pub(crate) year: PackedYear,
-    pub(crate) month: Option<PackedDM>,
-    pub(crate) day: Option<PackedDM>,
+    pub(crate) month: Option<PackedU8>,
+    pub(crate) day: Option<PackedU8>,
 }
 
 use packed::Certainty;
 
-impl PackedDM {
+impl PackedU8 {
     fn is_masked(&self) -> bool {
         let (_, flags) = self.unpack();
         flags.is_masked()
@@ -76,12 +79,12 @@ impl PackedDM {
 }
 
 impl UnvalidatedDMEnum {
-    pub(crate) fn validate(self) -> Result<PackedDM, ParseError> {
+    pub(crate) fn validate(self) -> Result<PackedU8, ParseError> {
         let (val, flags) = match self {
             Self::Masked(c) => (1, DMFlags::new(c, DMMask::Masked)),
             Self::Unmasked(v, c) => (v, DMFlags::new(c, DMMask::None)),
         };
-        PackedDM::pack(val, flags).ok_or(ParseError::OutOfRange)
+        PackedU8::pack(val, flags).ok_or(ParseError::OutOfRange)
     }
 }
 
@@ -185,6 +188,18 @@ mod test {
     }
 
     #[test]
+    fn no_uncertain_mid_date() {
+        // no
+        assert_eq!(Date::parse("2019?-08-08"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019-08%-08"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019-08?-08%"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019?-08-08%"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019~-08-08?"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019~-08?-08~"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019~-08~-08~"), Err(ParseError::Invalid));
+    }
+
+    #[test]
     fn xx_with_uncertainty() {
         // yes
         assert!(Date::parse("201X?").is_ok());
@@ -196,14 +211,9 @@ mod test {
         assert!(Date::parse("2019-XX-XX?").is_ok());
         assert!(Date::parse("2019-XX-XX~").is_ok());
         assert!(Date::parse("2019-XX-XX%").is_ok());
-        assert!(Date::parse("2019~-XX?-XX~").is_ok());
-        assert!(Date::parse("2019-XX?-XX%").is_ok());
-        assert!(Date::parse("2019?-XX-XX%").is_ok());
         assert!(Date::parse("2019-07-XX?").is_ok());
         assert!(Date::parse("2019-07-XX~").is_ok());
         assert!(Date::parse("2019-07-XX%").is_ok());
-        assert!(Date::parse("2019~-07-XX?").is_ok());
-        assert!(Date::parse("2019~-07~-XX~").is_ok());
         assert!(Date::parse("2019-07~-XX%").is_ok());
     }
 
