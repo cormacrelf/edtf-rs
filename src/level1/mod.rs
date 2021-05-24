@@ -39,10 +39,7 @@
 use crate::level0;
 use crate::ParseError;
 
-use self::packed::{
-    DMEnum, PackedInt, PackedYear,
-    YearMask,
-};
+use self::packed::{DMEnum, PackedInt, PackedYear, YearMask};
 use self::parser::UnvalidatedDate;
 
 mod packed;
@@ -134,18 +131,17 @@ mod test {
         assert_eq!(Date::parse("2019-13"), Err(ParseError::OutOfRange));
         assert_eq!(Date::parse("2019-99"), Err(ParseError::OutOfRange));
         assert_eq!(Date::parse("2019-04-40"), Err(ParseError::OutOfRange));
-        assert_eq!(Date::parse("2019-04-00"), Err(ParseError::OutOfRange));
-        assert_eq!(Date::parse("2019-00-00"), Err(ParseError::OutOfRange));
-        assert_eq!(Date::parse("2019-00-01"), Err(ParseError::OutOfRange));
+
+        assert_eq!(Date::parse("2019-04-00"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019-00-00"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("2019-00-01"), Err(ParseError::Invalid));
         // well, year 0 is fine. It's just 1BCE.
-        assert_eq!(Date::parse("0000-00-00"), Err(ParseError::OutOfRange));
-        assert_eq!(Date::parse("0000-10-00"), Err(ParseError::OutOfRange));
-        assert_eq!(Date::parse("0000-10-10"), Err(ParseError::OutOfRange));
+        assert_eq!(Date::parse("0000-00-00"), Err(ParseError::Invalid));
+        assert_eq!(Date::parse("0000-10-00"), Err(ParseError::Invalid));
     }
 
     #[test]
     fn invalid_season_combo() {
         assert!(Date::parse("2019-21-05").is_err());
     }
-
 }

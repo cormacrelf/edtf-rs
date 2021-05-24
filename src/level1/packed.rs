@@ -8,7 +8,7 @@ use core::num::NonZeroU8;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DMEnum {
     Masked,
-    Unmasked(NonZeroU8, Certainty)
+    Unmasked(NonZeroU8, Certainty),
 }
 #[test]
 fn test_enumday_size() {
@@ -129,12 +129,18 @@ impl YearFlags {
 }
 impl From<Certainty> for YearFlags {
     fn from(certainty: Certainty) -> Self {
-        Self { certainty, mask: YearMask::None }
+        Self {
+            certainty,
+            mask: YearMask::None,
+        }
     }
 }
 impl From<YearMask> for YearFlags {
     fn from(mask: YearMask) -> Self {
-        Self { certainty: Certainty::Certain, mask }
+        Self {
+            certainty: Certainty::Certain,
+            mask,
+        }
     }
 }
 
@@ -164,7 +170,10 @@ pub trait PackedInt {
     fn check_range_ok(inner: Self::Inner) -> bool;
     fn pack_unchecked(inner: Self::Inner, addendum: Self::Addendum) -> Self;
     fn unpack(&self) -> (Self::Inner, Self::Addendum);
-    fn pack(inner: Self::Inner, addendum: Self::Addendum) -> Option<Self> where Self: Sized {
+    fn pack(inner: Self::Inner, addendum: Self::Addendum) -> Option<Self>
+    where
+        Self: Sized,
+    {
         if !Self::check_range_ok(inner) {
             return None;
         }
@@ -231,4 +240,3 @@ fn test_packed_year() {
     roundtrip(0, ApproximateUncertain.into());
     roundtrip(-1, ApproximateUncertain.into());
 }
-

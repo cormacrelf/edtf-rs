@@ -28,14 +28,13 @@
 //! | `[date]/[date]` | `1964/2008`<br> `2004-06/2006-08` <br> `2004-02-01/2005-02-08` <br> `2004-02-01/2005-02` <br> etc |
 //!
 
-use crate::helpers::is_leap_year;
-use crate::ParseError;
+use crate::{common::is_valid_complete_date, ParseError};
 
 use core::num::NonZeroU8;
 
 mod parser;
-use parser::ParsedEdtf;
 use crate::common::{DateComplete, UnvalidatedTime, UnvalidatedTz};
+use parser::ParsedEdtf;
 
 pub(crate) type Year = i32;
 pub(crate) type Month = Option<NonZeroU8>;
@@ -121,13 +120,8 @@ impl DateComplete {
     }
     fn validate(self) -> Result<Self, ParseError> {
         let Self { year, month, day } = self;
-        let date = Date::new_unvalidated(year, Some(month), Some(day));
-        let v = date.validate()?;
-        Ok(Self {
-            year: v.year,
-            month: v.month.unwrap(),
-            day: v.day.unwrap(),
-        })
+        let v = is_valid_complete_date(year, month.get(), day.get())?;
+        Ok(v)
     }
 }
 
@@ -183,45 +177,29 @@ impl Date {
         .validate()
         .ok()
     }
+
     pub fn from_ymd(year: Year, month: u8, day: u8) -> Self {
         Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
     }
 
-    fn validate(mut self) -> Result<Self, ParseError> {
-        self.month = self.month.and_then(nullify_invalid_month_level0);
-        self.day = self.day.and_then(nullify_invalid_day);
-        const MONTH_DAYCOUNT: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        const MONTH_DAYCOUNT_LEAP: [u8; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    fn validate(self) -> Result<Self, ParseError> {
         if let Some(m) = self.month.map(NonZeroU8::get) {
             if let Some(d) = self.day.map(NonZeroU8::get) {
-                let max = if is_leap_year(self.year) {
-                    MONTH_DAYCOUNT_LEAP[m as usize - 1]
-                } else {
-                    MONTH_DAYCOUNT[m as usize - 1]
-                };
-                if d > max {
+                let _complete = is_valid_complete_date(self.year, m, d)?;
+            } else {
+                if m > 12 {
                     return Err(ParseError::OutOfRange);
                 }
             }
         } else {
-            // after nullify_invaliding, either could suddenly be zero.
-            // make sure if month is None, so is Day.
-            self.day = None;
+            if self.day.is_some() {
+                // Both the parser and from_ymd can accept 0 for month and nonzero for day.
+                return Err(ParseError::OutOfRange);
+            }
+            // otherwise, both Null.
         }
         Ok(self)
     }
-}
-
-fn nullify_invalid_month_level0(m: NonZeroU8) -> Option<NonZeroU8> {
-    let m = m.get();
-    let val = if m > 12 { 0 } else { m };
-    NonZeroU8::new(val)
-}
-
-fn nullify_invalid_day(m: NonZeroU8) -> Option<NonZeroU8> {
-    let m = m.get();
-    let val = if m > 31 { 0 } else { m };
-    NonZeroU8::new(val)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -300,5 +278,4 @@ mod test {
             utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
         );
     }
-
 }

@@ -130,10 +130,7 @@ mod test {
             Ok((
                 "",
                 UnvalidatedDate {
-                    year: (
-                        2019,
-                        YearFlags::new(ApproximateUncertain, YearMask::None)
-                    ),
+                    year: (2019, YearFlags::new(ApproximateUncertain, YearMask::None)),
                     month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
                     day: None,
                 }

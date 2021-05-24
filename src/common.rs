@@ -1,5 +1,6 @@
-use core::num::NonZeroU8;
 use crate::helpers::ParserExt;
+use crate::ParseError;
+use core::num::NonZeroU8;
 use core::str::FromStr;
 
 #[allow(unused_imports)]
@@ -14,6 +15,57 @@ pub struct DateComplete {
     pub(crate) year: i32,
     pub(crate) month: NonZeroU8,
     pub(crate) day: NonZeroU8,
+}
+
+/// Proleptic Gregorian leap year function.
+/// From RFC3339 Appendix C.
+pub(crate) fn is_leap_year(year: i32) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+#[test]
+fn leap_year() {
+    // yes
+    assert!(is_leap_year(2004));
+    assert!(is_leap_year(-400));
+    assert!(is_leap_year(-204));
+    assert!(is_leap_year(0));
+    // no
+    assert!(!is_leap_year(1));
+    assert!(!is_leap_year(100));
+    assert!(!is_leap_year(1900));
+    assert!(!is_leap_year(1901));
+    assert!(!is_leap_year(2005));
+    assert!(!is_leap_year(-1));
+    assert!(!is_leap_year(-100));
+    assert!(!is_leap_year(-200));
+    assert!(!is_leap_year(-300));
+    assert!(!is_leap_year(-309));
+}
+
+pub(crate) fn is_valid_complete_date(
+    year: i32,
+    month: u8,
+    day: u8,
+) -> Result<DateComplete, ParseError> {
+    const MONTH_DAYCOUNT: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const MONTH_DAYCOUNT_LEAP: [u8; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month = NonZeroU8::new(month).ok_or(ParseError::OutOfRange)?;
+    let day = NonZeroU8::new(day).ok_or(ParseError::OutOfRange)?;
+    let m = month.get();
+    let d = day.get();
+    if m > 12 || m < 1 || d < 1 || d > 31 {
+        return Err(ParseError::OutOfRange);
+    }
+    let max = if is_leap_year(year) {
+        MONTH_DAYCOUNT_LEAP[m as usize - 1]
+    } else {
+        MONTH_DAYCOUNT[m as usize - 1]
+    };
+    if d > max {
+        return Err(ParseError::OutOfRange);
+    }
+    Ok(DateComplete { year, month, day })
 }
 
 pub type StrResult<'a, T> = IResult<&'a str, T>;
@@ -35,13 +87,20 @@ pub fn take_n_digits(n: usize) -> impl FnMut(&str) -> StrResult<&str> {
     move |remain| nbc::take_while_m_n(n, n, |x: char| x.is_ascii_digit())(remain)
 }
 
-/// Level 0 month or day. Two digits, and the range is not checked here, except that 00 is
-/// rejected.
+/// Level 0 month or day. Two digits, and the range is not checked here except for the range of T.
 pub fn two_digits<T: FromStr>(remain: &str) -> StrResult<T> {
     let (remain, two) = take_n_digits(2)(remain)?;
     // NonZeroU8's FromStr implementation rejects 00.
     let (_, parsed) = nom::parse_to!(two, T)?;
     Ok((remain, parsed))
+}
+
+/// Level 0 month or day. Two digits, and the range is not checked here.
+pub fn two_digits_zero_none(remain: &str) -> StrResult<Option<NonZeroU8>> {
+    let (remain, two) = take_n_digits(2).parse(remain)?;
+    // NonZeroU8's FromStr implementation rejects 00.
+    let (_, parsed) = nom::parse_to!(two, u8)?;
+    Ok((remain, NonZeroU8::new(parsed)))
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

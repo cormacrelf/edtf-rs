@@ -1,6 +1,5 @@
 use crate::helpers::ParserExt;
 use crate::ParseError;
-use core::num::NonZeroU8;
 
 #[allow(unused_imports)]
 use nom::{
@@ -10,7 +9,9 @@ use nom::{
 };
 
 use super::{Date, DateComplete, Edtf};
-use crate::common::{date_time, maybe_hyphen, take_n_digits, two_digits, UnvalidatedTime, StrResult};
+use crate::common::{
+    date_time, maybe_hyphen, take_n_digits, two_digits, StrResult, UnvalidatedTime,
+};
 
 impl Edtf {
     pub(crate) fn parse_inner(input: &str) -> Result<ParsedEdtf, ParseError> {
@@ -48,9 +49,7 @@ fn level0(remain: &str) -> StrResult<ParsedEdtf> {
 }
 
 fn date_range(remain: &str) -> StrResult<(Date, Date)> {
-    date.and_ignore(ncc::char('/'))
-        .and(date)
-        .parse(remain)
+    date.and_ignore(ncc::char('/')).and(date).parse(remain)
 }
 
 /// [date_complete] or one of the reduced precision variants
@@ -61,12 +60,12 @@ pub(crate) fn date(remain: &str) -> StrResult<Date> {
     if !is_hyphen {
         return Ok((remain, Date::new_unvalidated(year, None, None)));
     }
-    let (remain, month) = two_digits::<NonZeroU8>(remain)?;
+    let (remain, month) = two_digits(remain)?;
     let (remain, is_hyphen) = maybe_hyphen(remain);
     if !is_hyphen {
         return Ok((remain, Date::new_unvalidated(year, Some(month), None)));
     }
-    let (remain, day) = two_digits::<NonZeroU8>(remain)?;
+    let (remain, day) = two_digits(remain)?;
     Ok((remain, Date::new_unvalidated(year, Some(month), Some(day))))
 }
 
@@ -80,6 +79,10 @@ fn year4(remain: &str) -> StrResult<i32> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use core::num::NonZeroU8;
+
+    use super::{DateComplete, ParsedEdtf};
+    use crate::common::{UnvalidatedTime, UnvalidatedTz};
 
     #[test]
     fn date() {
@@ -112,9 +115,6 @@ mod test {
             Ok(("000", Date::from_ymd(1985, 0, 0)))
         );
     }
-
-    use super::{DateComplete, ParsedEdtf};
-    use crate::common::{UnvalidatedTime, UnvalidatedTz};
 
     #[test]
     fn parse_level0() {
