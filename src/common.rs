@@ -17,6 +17,106 @@ pub struct DateComplete {
     pub(crate) day: NonZeroU8,
 }
 
+/// A DateTime object.
+///
+/// This has minimal introspection methods. Prefer to use its implementation of
+/// [chrono::Datelike] and [chrono::Timelike] or simply the [DateTime::to_chrono] method to use a
+/// specific [chrono::TimeZone], all available with `features = ["chrono"]`.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct DateTime {
+    pub(crate) date: DateComplete,
+    pub(crate) time: Time,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct Time {
+    pub hh: u8,
+    pub mm: u8,
+    pub ss: u8,
+    pub tz: Option<TzOffset>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum TzOffset {
+    Utc,
+    /// A number of seconds offset from UTC
+    Offset(i32),
+}
+
+#[cfg(feature = "chrono")]
+fn chrono_tz_datetime<Tz: chrono::TimeZone>(
+    tz: &Tz,
+    date: &DateComplete,
+    time: &Time,
+) -> chrono::DateTime<Tz> {
+    tz.ymd(date.year, date.month.get() as u32, date.day.get() as u32)
+        .and_hms(time.hh as u32, time.mm as u32, time.ss as u32)
+}
+
+#[cfg(feature = "chrono")]
+impl DateTime {
+    /// ```
+    /// use edtf::level_1::Edtf;
+    /// use chrono::TimeZone;
+    ///
+    /// let utc = chrono::Utc;
+    /// assert_eq!(
+    ///     Edtf::parse("2004-02-29T01:47:00+00:00")
+    ///         .unwrap()
+    ///         .as_datetime()
+    ///         .unwrap()
+    ///         .to_chrono(&utc),
+    ///     utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
+    /// );
+    /// ```
+    pub fn to_chrono<Tz>(&self, tz: &Tz) -> chrono::DateTime<Tz>
+    where
+        Tz: chrono::TimeZone,
+    {
+        let DateTime { date, time } = self;
+        match time.tz {
+            None => chrono_tz_datetime(tz, date, time),
+            Some(TzOffset::Utc) => {
+                let utc = chrono_tz_datetime(&chrono::Utc, date, time);
+                utc.with_timezone(tz)
+            }
+            Some(TzOffset::Offset(signed_seconds)) => {
+                let fixed_zone = chrono::FixedOffset::east_opt(signed_seconds)
+                    .expect("time zone offset out of bounds");
+                let fixed_dt = chrono_tz_datetime(&fixed_zone, date, time);
+                fixed_dt.with_timezone(tz)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[cfg(feature = "chrono")]
+    #[test]
+    fn to_chrono() {
+        use crate::level_1::Edtf;
+        use chrono::TimeZone;
+        let utc = chrono::Utc;
+        assert_eq!(
+            Edtf::parse("2004-02-29T01:47:00+00:00")
+                .unwrap()
+                .as_datetime()
+                .unwrap()
+                .to_chrono(&utc),
+            utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
+        );
+        assert_eq!(
+            Edtf::parse("2004-02-29T01:47:00")
+                .unwrap()
+                .as_datetime()
+                .unwrap()
+                .to_chrono(&utc),
+            utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
+        );
+    }
+}
 /// Proleptic Gregorian leap year function.
 /// From RFC3339 Appendix C.
 pub(crate) fn is_leap_year(year: i32) -> bool {
@@ -141,6 +241,7 @@ pub fn date_time(remain: &str) -> StrResult<(DateComplete, UnvalidatedTime)> {
     date_complete
         .and_ignore(ncc::char('T'))
         .and(time)
+        .complete()
         .parse(remain)
 }
 

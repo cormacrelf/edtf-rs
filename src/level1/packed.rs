@@ -1,5 +1,6 @@
 use core::num::NonZeroU8;
 
+/// Specifies the number of Xs in `2019`/`201X`/`20XX`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum YearMask {
@@ -9,6 +10,12 @@ pub enum YearMask {
     OneDigit = 0b01,
     /// `20XX`
     TwoDigits = 0b10,
+}
+
+impl Default for YearMask {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 impl From<u8> for YearMask {
@@ -22,8 +29,8 @@ impl From<u8> for YearMask {
     }
 }
 
-/// Represents whether a date part is uncertain and in what way.
-/// In EDTF, this is encoded as the `?`, `~` and `%` modifiers.
+/// Represents whether a date part is uncertain and in what way. In EDTF, this is encoded as the
+/// `?`, `~` and `%` modifiers.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Certainty {
@@ -35,6 +42,12 @@ pub enum Certainty {
     Approximate = 0b10,
     /// `%`
     ApproximateUncertain = 0b11,
+}
+
+impl Default for Certainty {
+    fn default() -> Self {
+        Self::Certain
+    }
 }
 
 impl Certainty {
@@ -61,8 +74,8 @@ impl From<u8> for Certainty {
 }
 
 // 4 bits total
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct YearFlags {
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub(crate) struct YearFlags {
     pub(crate) certainty: Certainty,
     pub(crate) mask: YearMask,
 }
@@ -189,12 +202,18 @@ impl DMFlags {
 }
 impl From<Certainty> for DMFlags {
     fn from(certainty: Certainty) -> Self {
-        Self { certainty, mask: DMMask::None }
+        Self {
+            certainty,
+            mask: DMMask::None,
+        }
     }
 }
 impl From<DMMask> for DMFlags {
     fn from(mask: DMMask) -> Self {
-        Self { certainty: Certainty::Certain, mask }
+        Self {
+            certainty: Certainty::Certain,
+            mask,
+        }
     }
 }
 
@@ -278,4 +297,3 @@ fn test_packed_size() {
     assert_eq!(size_of::<PackedYear>(), 4);
     assert_eq!(size_of::<(PackedYear, PackedU8, PackedU8)>(), 8);
 }
-

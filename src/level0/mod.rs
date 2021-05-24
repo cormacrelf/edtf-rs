@@ -33,7 +33,7 @@ use crate::{common::is_valid_complete_date, ParseError};
 use core::num::NonZeroU8;
 
 mod parser;
-use crate::common::{DateComplete, UnvalidatedTime, UnvalidatedTz};
+use crate::common::{DateComplete, UnvalidatedTime, UnvalidatedTz, DateTime, Time, TzOffset};
 use parser::ParsedEdtf;
 
 pub(crate) type Year = i32;
@@ -52,20 +52,6 @@ pub struct Date {
     year: Year,
     month: Month,
     day: Day,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct DateTime {
-    date: DateComplete,
-    time: Time,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct Time {
-    hh: u8,
-    mm: u8,
-    ss: u8,
-    tz: Option<TzOffset>,
 }
 
 impl Edtf {
@@ -118,7 +104,7 @@ impl DateComplete {
         let day = NonZeroU8::new(day)?;
         Self { year, month, day }.validate().ok()
     }
-    fn validate(self) -> Result<Self, ParseError> {
+    pub(crate) fn validate(self) -> Result<Self, ParseError> {
         let Self { year, month, day } = self;
         let v = is_valid_complete_date(year, month.get(), day.get())?;
         Ok(v)
@@ -126,7 +112,7 @@ impl DateComplete {
 }
 
 impl DateTime {
-    fn validate(date: DateComplete, time: UnvalidatedTime) -> Result<Self, ParseError> {
+    pub(crate) fn validate(date: DateComplete, time: UnvalidatedTime) -> Result<Self, ParseError> {
         let date = date.validate()?;
         let time = time.validate()?;
         Ok(DateTime { date, time })
@@ -202,13 +188,6 @@ impl Date {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum TzOffset {
-    Utc,
-    /// A number of seconds offset from UTC
-    Offset(i32),
-}
-
 #[cfg(feature = "chrono")]
 fn fixed_offset_from(positive: bool, hh: u8, mm: u8) -> Option<chrono::FixedOffset> {
     let secs = 3600 * hh as i32 + 60 * mm as i32;
@@ -219,63 +198,3 @@ fn fixed_offset_from(positive: bool, hh: u8, mm: u8) -> Option<chrono::FixedOffs
     }
 }
 
-#[cfg(feature = "chrono")]
-fn chrono_tz_datetime<Tz: chrono::TimeZone>(
-    tz: &Tz,
-    date: &DateComplete,
-    time: &Time,
-) -> chrono::DateTime<Tz> {
-    tz.ymd(date.year, date.month.get() as u32, date.day.get() as u32)
-        .and_hms(time.hh as u32, time.mm as u32, time.ss as u32)
-}
-
-#[cfg(feature = "chrono")]
-impl DateTime {
-    pub fn to_chrono<Tz>(&self, tz: &Tz) -> chrono::DateTime<Tz>
-    where
-        Tz: chrono::TimeZone,
-    {
-        let DateTime { date, time } = self;
-        match time.tz {
-            None => chrono_tz_datetime(tz, date, time),
-            Some(TzOffset::Utc) => {
-                let utc = chrono_tz_datetime(&chrono::Utc, date, time);
-                utc.with_timezone(tz)
-            }
-            Some(TzOffset::Offset(signed_seconds)) => {
-                let fixed_zone = chrono::FixedOffset::east_opt(signed_seconds)
-                    .expect("time zone offset out of bounds");
-                let fixed_dt = chrono_tz_datetime(&fixed_zone, date, time);
-                fixed_dt.with_timezone(tz)
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    #[cfg(feature = "chrono")]
-    #[test]
-    fn to_chrono() {
-        use super::Edtf;
-        use chrono::TimeZone;
-        let utc = chrono::Utc;
-        assert_eq!(
-            Edtf::parse("2004-02-29T01:47:00+00:00")
-                .unwrap()
-                .as_datetime()
-                .unwrap()
-                .to_chrono(&utc),
-            utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
-        );
-        assert_eq!(
-            Edtf::parse("2004-02-29T01:47:00")
-                .unwrap()
-                .as_datetime()
-                .unwrap()
-                .to_chrono(&utc),
-            utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
-        );
-    }
-}
