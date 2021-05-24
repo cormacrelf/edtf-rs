@@ -36,26 +36,53 @@
 //!
 //! `-1740`
 
+use crate::common::is_valid_complete_date;
 use crate::ParseError;
 use ParseError::*;
-use crate::common::is_valid_complete_date;
 
-use self::packed::{DMEnum, PackedInt, PackedYear, YearMask};
+use self::{packed::{DMFlags, DMMask, PackedInt, PackedDM, PackedYear, YearMask}, parser::UnvalidatedDMEnum};
 use self::parser::UnvalidatedDate;
 
+pub mod api;
 mod packed;
 mod parser;
-pub mod api;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Date {
     pub(crate) year: PackedYear,
-    pub(crate) month: Option<DMEnum>,
-    pub(crate) day: Option<DMEnum>,
+    pub(crate) month: Option<PackedDM>,
+    pub(crate) day: Option<PackedDM>,
 }
 
-fn value_of(opt_dmenum: Option<DMEnum>) -> Option<u8> {
-    opt_dmenum.as_ref().and_then(DMEnum::value)
+use packed::Certainty;
+
+impl PackedDM {
+    fn is_masked(&self) -> bool {
+        let (_, flags) = self.unpack();
+        flags.is_masked()
+    }
+    fn certainty(&self) -> Certainty {
+        let (_, flags) = self.unpack();
+        flags.certainty
+    }
+    fn value(&self) -> Option<u8> {
+        let (val, flags) = self.unpack();
+        if flags.is_masked() {
+            None
+        } else {
+            Some(val)
+        }
+    }
+}
+
+impl UnvalidatedDMEnum {
+    pub(crate) fn validate(self) -> Result<PackedDM, ParseError> {
+        let (val, flags) = match self {
+            Self::Masked(c) => (1, DMFlags::new(c, DMMask::Masked)),
+            Self::Unmasked(v, c) => (v, DMFlags::new(c, DMMask::None)),
+        };
+        PackedDM::pack(val, flags).ok_or(ParseError::OutOfRange)
+    }
 }
 
 fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
@@ -75,8 +102,8 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
     // this is funny in 2021
     eprintln!("    check_masks: {:?}", date);
     let year_mask = year.1.mask != YearMask::None;
-    let month_mask = month.as_ref().map(DMEnum::is_masked);
-    let day_mask = day.as_ref().map(DMEnum::is_masked);
+    let month_mask = month.as_ref().map(|x| x.is_masked());
+    let day_mask = day.as_ref().map(|x| x.is_masked());
     match (year_mask, month_mask, day_mask) {
         // no masks is fine
         (false, None, None) => {}
@@ -92,8 +119,8 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
 
     eprintln!("   check_values: {:?}", date);
     let year_val = year.0;
-    let month_val = month.as_ref().and_then(DMEnum::value);
-    let day_val = day.as_ref().and_then(DMEnum::value);
+    let month_val = month.as_ref().and_then(|x| x.value());
+    let day_val = day.as_ref().and_then(|x| x.value());
     match (month_val, day_val) {
         // not a month (i.e. a season), but day provided
         (Some(m), Some(_)) if m > 12 => return Err(Invalid),
@@ -102,12 +129,13 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
             let _complete = is_valid_complete_date(year_val, m, d)?;
         }
         (None, None) => {}
+        // _ => panic!("not ok: {:?}", (month_val, day_val)),
         _ => return Err(OutOfRange),
     }
     let date = Date {
         year: PackedYear::pack(date.year.0, date.year.1).ok_or(ParseError::OutOfRange)?,
-        month: month,
-        day: day,
+        month,
+        day,
     };
     Ok(date)
 }

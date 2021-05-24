@@ -1,43 +1,4 @@
-use core::marker::PhantomData;
 use core::num::NonZeroU8;
-
-// turns out don't need quite as much packing on the month and day, because in struct [32, x], x
-// can be up to 32 bits before causing the whole struct's size to bump up beyond 64 bits. So each
-// of month and day has 16 bits to use, each value fits in 8 bits, and so each one's flags can have
-// 8 bits to itself.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum DMEnum {
-    Masked,
-    Unmasked(NonZeroU8, Certainty),
-}
-
-#[test]
-fn test_enumday_size() {
-    struct InContext(PackedYear, Option<DMEnum>, Option<DMEnum>);
-    assert_eq!(std::mem::size_of::<Option<DMEnum>>(), 2);
-    assert_eq!(std::mem::size_of::<InContext>(), 8);
-}
-
-impl DMEnum {
-    pub(crate) fn value(&self) -> Option<u8> {
-        match self {
-            Self::Masked => None,
-            Self::Unmasked(v, _c) => Some(v.get()),
-        }
-    }
-    pub(crate) fn certainty(&self) -> Option<Certainty> {
-        match self {
-            Self::Masked => None,
-            Self::Unmasked(_v, c) => Some(*c),
-        }
-    }
-    pub(crate) fn is_masked(&self) -> bool {
-        match self {
-            Self::Masked => true,
-            _ => false,
-        }
-    }
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -190,24 +151,94 @@ impl PackedInt for PackedYear {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct PackedU8<R>(NonZeroU8, PhantomData<R>);
-
-pub trait U8Range {
-    fn includes(int: u8) -> bool;
+#[repr(u8)]
+pub enum DMMask {
+    /// `2019-05`
+    None = 0,
+    /// `2019-XX`
+    Masked = 1,
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct MonthSeasonRange;
-impl U8Range for MonthSeasonRange {
-    fn includes(int: u8) -> bool {
-        (int >= 1 && int <= 12) || (int >= 21 && int <= 24)
+
+impl From<u8> for DMMask {
+    fn from(bits: u8) -> Self {
+        match bits {
+            0 => DMMask::None,
+            1 => DMMask::Masked,
+            _ => panic!("bit pattern {:b} out of range for DayMonthMask", bits),
+        }
     }
 }
+
+// 3 bits total
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct DayRange;
-impl U8Range for DayRange {
-    fn includes(int: u8) -> bool {
-        int >= 1 && int <= 31
+pub struct DMFlags {
+    pub(crate) certainty: Certainty,
+    pub(crate) mask: DMMask,
+}
+
+impl DMFlags {
+    pub(crate) fn certainty(&self) -> Certainty {
+        self.certainty
+    }
+    pub(crate) fn is_masked(&self) -> bool {
+        self.mask != DMMask::None
+    }
+    pub(crate) fn new(certainty: Certainty, mask: DMMask) -> Self {
+        Self { certainty, mask }
+    }
+}
+impl From<Certainty> for DMFlags {
+    fn from(certainty: Certainty) -> Self {
+        Self { certainty, mask: DMMask::None }
+    }
+}
+impl From<DMMask> for DMFlags {
+    fn from(mask: DMMask) -> Self {
+        Self { certainty: Certainty::Certain, mask }
+    }
+}
+
+impl From<DMFlags> for u8 {
+    fn from(dmc: DMFlags) -> Self {
+        let DMFlags { certainty, mask } = dmc;
+        let cert = certainty as u8 & 0b11;
+        let mask = (mask as u8 & 0b1) << 2;
+        cert | mask
+    }
+}
+
+impl From<u8> for DMFlags {
+    fn from(bits: u8) -> Self {
+        let c_bits = bits & 0b11;
+        let mask_bits = (bits & 0b100) >> 2;
+        Self {
+            certainty: Certainty::from(c_bits),
+            mask: DMMask::from(mask_bits),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct PackedDM(NonZeroU8);
+
+impl PackedInt for PackedDM {
+    type Inner = u8;
+    type Addendum = DMFlags;
+    fn check_range_ok(inner: Self::Inner) -> bool {
+        const MAX: u8 = u8::MAX >> 3;
+        const MIN: u8 = 1;
+        inner >= MIN && inner <= MAX
+    }
+    fn unpack(&self) -> (Self::Inner, Self::Addendum) {
+        let inner = self.0.get() >> 3;
+        let addendum = DMFlags::from((self.0.get() & 0b111) as u8);
+        (inner, addendum)
+    }
+    fn pack_unchecked(inner: Self::Inner, addendum: Self::Addendum) -> Self {
+        let inner = inner << 3;
+        let addendum: u8 = addendum.into();
+        Self(NonZeroU8::new(inner | addendum).unwrap())
     }
 }
 
@@ -224,3 +255,27 @@ fn test_packed_year() {
     roundtrip(0, ApproximateUncertain.into());
     roundtrip(-1, ApproximateUncertain.into());
 }
+
+#[test]
+fn test_packed_month_day() {
+    use Certainty::*;
+    use DMMask as Mask;
+    fn roundtrip(a: u8, b: DMFlags) {
+        let (aa, bb) = PackedDM::pack(a, b).expect("should be in range").unpack();
+        assert_eq!((a, b), (aa, bb));
+    }
+    roundtrip(1, Certain.into());
+    roundtrip(12, Mask::Masked.into());
+    // we can store a day in a PackedU8, since 31 == u8::MAX >> 3.
+    // However, we can't store the Level 2 extended season info in there, as those go up to 41.
+    // So we'll just use a U16 for that.
+    roundtrip(31, Mask::Masked.into());
+}
+
+#[test]
+fn test_packed_size() {
+    use core::mem::size_of;
+    assert_eq!(size_of::<PackedYear>(), 4);
+    assert_eq!(size_of::<(PackedYear, PackedDM, PackedDM)>(), 8);
+}
+

@@ -1,5 +1,3 @@
-use std::num::NonZeroU8;
-
 #[allow(unused_imports)]
 use nom::{
     branch as nb, bytes::complete as nbc, character as nch, character::complete as ncc,
@@ -11,10 +9,7 @@ use crate::common::{hyphen, two_digits, year_n, StrResult};
 use crate::helpers::ParserExt;
 use crate::ParseError;
 
-use super::packed::{
-    Certainty::{self, *},
-    DMEnum, YearFlags, YearMask,
-};
+use super::packed::{Certainty::{self, *}, YearFlags, YearMask};
 
 impl super::Date {
     pub(crate) fn parse_inner(input: &str) -> Result<UnvalidatedDate, ParseError> {
@@ -36,19 +31,8 @@ pub(crate) struct UnvalidatedDate {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum UnvalidatedDMEnum {
-    Masked,
+    Masked(Certainty),
     Unmasked(u8, Certainty),
-}
-impl UnvalidatedDMEnum {
-    pub(crate) fn validate(self) -> Result<DMEnum, ParseError> {
-        match self {
-            Self::Masked => Ok(DMEnum::Masked),
-            Self::Unmasked(v, c) => match NonZeroU8::new(v) {
-                Some(v) => Ok(DMEnum::Unmasked(v, c)),
-                None => Err(ParseError::OutOfRange),
-            },
-        }
-    }
 }
 
 pub(crate) fn date_certainty(input: &str) -> StrResult<UnvalidatedDate> {
@@ -90,7 +74,7 @@ fn year_certainty(input: &str) -> StrResult<(i32, YearFlags)> {
 }
 
 fn two_digits_certainty(input: &str) -> StrResult<UnvalidatedDMEnum> {
-    let masked = nbc::tag("XX").map(|_| UnvalidatedDMEnum::Masked);
+    let masked = nbc::tag("XX").and(certainty).map(|(_, c)| UnvalidatedDMEnum::Masked(c));
     let dig_cert = two_digits
         .and(certainty)
         .map(|x| UnvalidatedDMEnum::Unmasked(x.0, x.1));
@@ -110,7 +94,7 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, Certain.into()),
-                    month: Some(UnvalidatedDMEnum::Masked),
+                    month: Some(UnvalidatedDMEnum::Masked(Certainty::Certain)),
                     day: None,
                 }
             ))
