@@ -6,10 +6,11 @@ use core::num::NonZeroU8;
 // of month and day has 16 bits to use, each value fits in 8 bits, and so each one's flags can have
 // 8 bits to itself.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum DMEnum {
+pub(crate) enum DMEnum {
     Masked,
     Unmasked(NonZeroU8, Certainty),
 }
+
 #[test]
 fn test_enumday_size() {
     struct InContext(PackedYear, Option<DMEnum>, Option<DMEnum>);
@@ -44,41 +45,24 @@ pub enum YearMask {
     /// `2019`
     None = 0b00,
     /// `201X`
-    One = 0b01,
+    OneDigit = 0b01,
     /// `20XX`
-    Two = 0b10,
+    TwoDigits = 0b10,
 }
 
 impl From<u8> for YearMask {
     fn from(bits: u8) -> Self {
         match bits {
             0b00 => YearMask::None,
-            0b01 => YearMask::One,
-            0b10 => YearMask::Two,
+            0b01 => YearMask::OneDigit,
+            0b10 => YearMask::TwoDigits,
             _ => panic!("bit pattern {:b} out of range for YearMaskDigits", bits),
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(u8)]
-pub enum DayMonthMask {
-    /// `2019-05`
-    None = 0,
-    /// `2019-XX`
-    Masked = 1,
-}
-
-impl From<u8> for DayMonthMask {
-    fn from(bits: u8) -> Self {
-        match bits {
-            0 => DayMonthMask::None,
-            1 => DayMonthMask::Masked,
-            _ => panic!("bit pattern {:b} out of range for DayMonthMask", bits),
-        }
-    }
-}
-
+/// Represents whether a date part is uncertain and in what way.
+/// In EDTF, this is encoded as the `?`, `~` and `%` modifiers.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Certainty {
@@ -123,7 +107,7 @@ pub struct YearFlags {
 }
 
 impl YearFlags {
-    pub fn new(certainty: Certainty, mask: YearMask) -> Self {
+    pub(crate) fn new(certainty: Certainty, mask: YearMask) -> Self {
         Self { certainty, mask }
     }
 }
@@ -164,7 +148,7 @@ impl From<u8> for YearFlags {
     }
 }
 
-pub trait PackedInt {
+pub(crate) trait PackedInt {
     type Inner: Copy;
     type Addendum: Copy;
     fn check_range_ok(inner: Self::Inner) -> bool;
@@ -183,7 +167,7 @@ pub trait PackedInt {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct PackedYear(i32);
+pub(crate) struct PackedYear(pub(crate) i32);
 
 impl PackedInt for PackedYear {
     type Inner = i32;

@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 #[allow(unused_imports)]
 use nom::{
     branch as nb, bytes::complete as nbc, character as nch, character::complete as ncc,
@@ -28,8 +30,25 @@ impl super::Date {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct UnvalidatedDate {
     pub year: (i32, YearFlags),
-    pub month: Option<DMEnum>,
-    pub day: Option<DMEnum>,
+    pub month: Option<UnvalidatedDMEnum>,
+    pub day: Option<UnvalidatedDMEnum>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum UnvalidatedDMEnum {
+    Masked,
+    Unmasked(u8, Certainty),
+}
+impl UnvalidatedDMEnum {
+    pub(crate) fn validate(self) -> Result<DMEnum, ParseError> {
+        match self {
+            Self::Masked => Ok(DMEnum::Masked),
+            Self::Unmasked(v, c) => match NonZeroU8::new(v) {
+                Some(v) => Ok(DMEnum::Unmasked(v, c)),
+                None => Err(ParseError::OutOfRange),
+            },
+        }
+    }
 }
 
 pub(crate) fn date_certainty(input: &str) -> StrResult<UnvalidatedDate> {
@@ -60,29 +79,26 @@ fn certainty(input: &str) -> StrResult<Certainty> {
 fn year_certainty(input: &str) -> StrResult<(i32, YearFlags)> {
     let double_mask = year_n(2)
         .and_ignore(nbc::tag("XX"))
-        .map(|i| (i * 100, YearMask::Two.into()));
+        .map(|i| (i * 100, YearMask::TwoDigits.into()));
     let single_mask = year_n(3)
         .and_ignore(ncc::char('X'))
-        .map(|i| (i * 10, YearMask::One.into()));
+        .map(|i| (i * 10, YearMask::OneDigit.into()));
     let dig_cert = year_n(4).and(certainty.map(|c| c.into()));
     double_mask.or(single_mask).or(dig_cert).parse(input)
 }
 
-fn two_digits_certainty(input: &str) -> StrResult<DMEnum> {
-    let masked = nbc::tag("XX").map(|_| DMEnum::Masked);
+fn two_digits_certainty(input: &str) -> StrResult<UnvalidatedDMEnum> {
+    let masked = nbc::tag("XX").map(|_| UnvalidatedDMEnum::Masked);
     let dig_cert = two_digits
         .and(certainty)
-        .map(|x| DMEnum::Unmasked(x.0, x.1));
+        .map(|x| UnvalidatedDMEnum::Unmasked(x.0, x.1));
     masked.or(dig_cert).parse(input)
 }
 
 #[cfg(test)]
 mod test {
-    use std::num::NonZeroU8;
-
-    use crate::level1::packed::{YearFlags, YearMask};
-
     use super::*;
+    use crate::level1::packed::{YearFlags, YearMask};
 
     #[test]
     fn unspecified_date() {
@@ -92,7 +108,7 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, Certain.into()),
-                    month: Some(DMEnum::Masked),
+                    month: Some(UnvalidatedDMEnum::Masked),
                     day: None,
                 }
             ))
@@ -119,7 +135,7 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearFlags::new(Uncertain, YearMask::None)),
-                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Approximate)),
+                    month: Some(UnvalidatedDMEnum::Unmasked(5, Approximate)),
                     day: None,
                 }
             ))
@@ -131,7 +147,7 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearFlags::new(ApproximateUncertain, YearMask::None)),
-                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
+                    month: Some(UnvalidatedDMEnum::Unmasked(5, Uncertain)),
                     day: None,
                 }
             ))
@@ -143,8 +159,8 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearFlags::new(Certain, YearMask::None)),
-                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Uncertain)),
-                    day: Some(DMEnum::Unmasked(NonZeroU8::new(9).unwrap(), Approximate)),
+                    month: Some(UnvalidatedDMEnum::Unmasked(5, Uncertain)),
+                    day: Some(UnvalidatedDMEnum::Unmasked(9, Approximate)),
                 }
             ))
         );
@@ -155,8 +171,8 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, YearFlags::new(Certain, YearMask::None)),
-                    month: Some(DMEnum::Unmasked(NonZeroU8::new(5).unwrap(), Certain)),
-                    day: Some(DMEnum::Unmasked(NonZeroU8::new(9).unwrap(), Certain)),
+                    month: Some(UnvalidatedDMEnum::Unmasked(5, Certain)),
+                    day: Some(UnvalidatedDMEnum::Unmasked(9, Certain)),
                 }
             ))
         );

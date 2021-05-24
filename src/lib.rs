@@ -3,7 +3,8 @@
 mod common;
 mod helpers;
 pub mod level0;
-pub mod level1;
+mod level1;
+pub use level1::api as level_1;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ParseError {
