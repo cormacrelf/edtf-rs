@@ -79,10 +79,12 @@ fn certainty(input: &str) -> StrResult<Certainty> {
 fn year_certainty(input: &str) -> StrResult<(i32, YearFlags)> {
     let double_mask = year_n(2)
         .and_ignore(nbc::tag("XX"))
-        .map(|i| (i * 100, YearMask::TwoDigits.into()));
+        .and(certainty)
+        .map(|(i, c)| (i * 100, YearFlags::new(c, YearMask::TwoDigits)));
     let single_mask = year_n(3)
         .and_ignore(ncc::char('X'))
-        .map(|i| (i * 10, YearMask::OneDigit.into()));
+        .and(certainty)
+        .map(|(i, c)| (i * 10, YearFlags::new(c, YearMask::OneDigit)));
     let dig_cert = year_n(4).and(certainty.map(|c| c.into()));
     double_mask.or(single_mask).or(dig_cert).parse(input)
 }
