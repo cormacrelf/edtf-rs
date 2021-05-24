@@ -157,6 +157,29 @@ mod test {
     }
 
     #[test]
+    fn xx_with_uncertainty() {
+        // yes
+        assert!(Date::parse("201X?").is_ok());
+        assert!(Date::parse("20XX~").is_ok());
+        assert!(Date::parse("20XX%").is_ok());
+        assert!(Date::parse("2019-XX?").is_ok());
+        assert!(Date::parse("2019-XX~").is_ok());
+        assert!(Date::parse("2019-XX%").is_ok());
+        assert!(Date::parse("2019-XX-XX?").is_ok());
+        assert!(Date::parse("2019-XX-XX~").is_ok());
+        assert!(Date::parse("2019-XX-XX%").is_ok());
+        assert!(Date::parse("2019~-XX?-XX~").is_ok());
+        assert!(Date::parse("2019-XX?-XX%").is_ok());
+        assert!(Date::parse("2019?-XX-XX%").is_ok());
+        assert!(Date::parse("2019-07-XX?").is_ok());
+        assert!(Date::parse("2019-07-XX~").is_ok());
+        assert!(Date::parse("2019-07-XX%").is_ok());
+        assert!(Date::parse("2019~-07-XX?").is_ok());
+        assert!(Date::parse("2019~-07~-XX~").is_ok());
+        assert!(Date::parse("2019-07~-XX%").is_ok());
+    }
+
+    #[test]
     fn invalid_calendar_dates() {
         assert_eq!(Date::parse("2019-13"), Err(ParseError::OutOfRange));
         assert_eq!(Date::parse("2019-99"), Err(ParseError::OutOfRange));
