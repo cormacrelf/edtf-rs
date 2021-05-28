@@ -5,11 +5,15 @@ use nom::{
     Parser,
 };
 
-use crate::common::{
-    date_time, hyphen, two_digits, year_n, DateComplete, StrResult, UnvalidatedTime,
+use crate::{
+    common::{date_time, hyphen, two_digits, year_n, DateComplete, StrResult, UnvalidatedTime},
+    helpers::ParserExt,
+    level_1::ScientificYear,
 };
-use crate::helpers::ParserExt;
-use crate::ParseError;
+use crate::{
+    common::{minus_sign, take_min_n_digits},
+    ParseError,
+};
 
 use super::packed::{
     Certainty::{self, *},
@@ -18,8 +22,8 @@ use super::packed::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ParsedEdtf {
-    /// Should not contain DateTime variant
     Date(UnvalidatedDate),
+    Scientific(ScientificYear),
     Range(UnvalidatedDate, UnvalidatedDate),
     RangeOpenEnd(UnvalidatedDate),
     RangeOpenStart(UnvalidatedDate),
@@ -40,6 +44,7 @@ impl ParsedEdtf {
 }
 
 fn level1(input: &str) -> StrResult<ParsedEdtf> {
+    let sci = scientific.map(|sy| ParsedEdtf::Scientific(sy));
     let dt = date_time.map(|(d, t)| ParsedEdtf::DateTime(d, t));
     let single = date_certainty.complete().map(ParsedEdtf::Date);
     let range = date_range.map(|(a, b)| ParsedEdtf::Range(a, b));
@@ -49,7 +54,7 @@ fn level1(input: &str) -> StrResult<ParsedEdtf> {
     let ro_start = range_open_start.map(ParsedEdtf::RangeOpenStart);
     let ro_end = range_open_end.map(ParsedEdtf::RangeOpenEnd);
 
-    single
+    sci.or(single)
         .or(dt)
         .or(range)
         .or(ru_start)
@@ -57,6 +62,63 @@ fn level1(input: &str) -> StrResult<ParsedEdtf> {
         .or(ro_start)
         .or(ro_end)
         .parse(input)
+}
+
+fn scientific(remain: &str) -> StrResult<ScientificYear> {
+    // note: when we write these back out, the ScientificYear will have a `Y` prefix whenever the
+    // year is more than 4 digits long. That's lossless.
+    scientific_y.or(scientific_4digit).complete().parse(remain)
+}
+
+fn scientific_4digit(remain: &str) -> StrResult<ScientificYear> {
+    let s = ncc::char('S');
+    let (remain, (year, sd)) = year_n(4).and(ns::preceded(s, ncc::digit1)).parse(remain)?;
+    let (_, sd) = nom::parse_to!(sd, u16)?;
+    Ok((
+        remain,
+        ScientificYear {
+            mantissa: year as i64,
+            exponent: 0,
+            significant_digits: sd,
+        },
+    ))
+}
+
+pub fn signed_year_min_n(n: usize) -> impl FnMut(&str) -> StrResult<i64> {
+    move |remain| {
+        let (remain, sign) = minus_sign(remain, -1i64, 1i64)?;
+        let (remain, digs) = take_min_n_digits(n)(remain)?;
+        let (_, parsed) = nom::parse_to!(digs, i64)?;
+        Ok((remain, parsed * sign))
+    }
+}
+
+/// Allows either Y{digit1}E7 or Y{min 5 digits}, followed by optional S3 suffix.
+/// So if Y is less than 5 digits, E is mandatory.
+fn scientific_y(remain: &str) -> StrResult<ScientificYear> {
+    let e = ncc::char('E');
+    let s = ncc::char('S');
+    let (remain, ((mantissa, opt_e), opt_s)) = ns::preceded(ncc::char('Y'), signed_year_min_n(1))
+        .and(ns::preceded(e, ncc::digit1).map(Some))
+        .or(ns::preceded(ncc::char('Y'), signed_year_min_n(5)).map(|y| (y, None)))
+        .and(ns::preceded(s, ncc::digit1).optional())
+        .parse(remain)?;
+    let exponent = opt_e
+        .map(|e| nom::parse_to!(e, u16))
+        .transpose()?
+        .map_or(0, |x| x.1);
+    let significant_digits = opt_s
+        .map(|s| nom::parse_to!(s, u16))
+        .transpose()?
+        .map_or(0, |x| x.1);
+    Ok((
+        remain,
+        ScientificYear {
+            mantissa,
+            exponent,
+            significant_digits,
+        },
+    ))
 }
 
 fn range_open_start(remain: &str) -> StrResult<UnvalidatedDate> {

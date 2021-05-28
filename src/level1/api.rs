@@ -9,6 +9,54 @@
 //! - 'Y170000002' is the year 170000002
 //! - 'Y-170000002' is the year -170000002
 //!
+//! ### Notes:
+//!
+//! It is unclear how many other features should be supported in `Y`-years.
+//!
+//! - Can they be followed by a month and day/season?
+//!   - Probably not, because the spec says '*to signify that the date is a year*'.
+//! - Can they take `X/XX` unspecified digits?
+//!   - I don't see why not, but there are no examples of this in the spec. Not that there should
+//!   have to be, but I can see why people havenn't implemented it.
+//! - Can they have a `?~%` uncertainty attached?
+//!   - Again, I don't see why not. If you're talking about 10,000BC, it is rare that
+//!   you could actually be certain. But that only makes it more logical that you should be able to
+//!   use the uncertainty flags.
+//! - Can they be put in ranges?
+//!   - Absolutely no reason why not. It's hard to believe nobody has implemented this.
+//!
+//! For compatibility reasons, edtf-rs won't support these unless there is a more precise revision
+//! of the spec that clarifies `Y`-years' status in the grammar. This is, however, the only reason
+//! why. It appears that the test suites for the other implementations draw almost entirely from
+//! the spec document itself; I haven't seen a test for `Y`-years other than the two examples given
+//! in the spec.
+//!
+//! Tests: [php](https://github.com/ProfessionalWiki/EDTF/blob/c0f54c0c8dff3c00f9b32ea3e773315d6a5f2c9e/tests/Functional/Level1/PrefixedYearTest.php),
+//! [js]()
+//! [rb](https://github.com/inukshuk/edtf-ruby/blob/7ee86d81ddb7d6503d5b282a409eb43e51f27186/spec/edtf/parser_spec.rb#L74-L80),
+//! [py](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L101-L103) but [considers `y17e7-12-26` to be "not implemented"](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L195) rather than not part of the spec.
+//!
+//! This table lists compatibility as of 2021-05-26, with implementations ordered roughly by
+//! recency.
+//!
+//! | Feature (?)                      | [PHP][php] | [Dart][dart] | [edtf.js][js] | [edtf-ruby][rb][^prev] |[python-edtf][py][^prev] |
+//! | ---                              | -- | -- | -- | -- |
+//! | `Y17000`, `Y-17000` (base)       | ✅ | ✅ | ✅[^prev] | ✅[^prev] |
+//! | `Y17000-08-18`                   | ❌ | ❌ | ❌ | ❌ |
+//! | `Y1700X`                         | ❌ | ❌ | ❌ | ❌ |
+//! | `Y17000?`                        | ❌ | ❌ | ❌ | ❌ |
+//! | `Y-17000/2003`, `Y17000/..` etc. | ❌ | ❌ | ❌ | ❌ |
+//! | `[Y17000..]`, etc.               | ❌ | ❌ | ❌ | ❌ |
+//!
+//! [php]: https://github.com/ProfessionalWiki/EDTF
+//! [dart]: https://github.com/maalexy/edtf
+//! [js]: https://npmjs.com/package/edtf/
+//! [rb]: https://rubygems.org/gems/edtf/
+//! [py]: https://pypi.org/project/edtf/
+//! [^prev]: Using `y` instead of `Y`. `edtf-ruby` and `python-edtf` do not yet support the latest
+//! draft.
+//!
+//!
 //! ## Seasons ✅
 //!
 //! Using Spring=21, Summer=22, Autumn=23, Winter=24.
@@ -137,6 +185,76 @@ pub struct Date {
     pub(crate) certainty: Certainty,
 }
 
+/// A year equal to `sign(mantissa) * abs(mantissa) * 10^exponent`, to a precision of `significant`
+/// significant digits.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ScientificYear {
+    /// Includes the sign bit for convenience of representation.
+    pub mantissa: i64,
+    pub exponent: u16,
+    pub significant_digits: u16,
+}
+
+impl ScientificYear {
+    /// Creates a new ScientificYear with the given mantissa, exponent, and significant digits.
+    ///
+    /// The mantissa contains the sign. This function panics if the values provided would overflow
+    /// when computed.
+    ///
+    /// ```
+    /// use edtf::level_1::{Edtf, ScientificYear};
+    /// let edtf = Edtf::parse("Y17E7S3").unwrap();
+    /// let year = Edtf::Scientific(ScientificYear::new(17, 7, 3));
+    /// assert_eq!(edtf, year);
+    /// ```
+    pub fn new(mantissa: i64, exponent: u16, significant_digits: u16) -> Self {
+        Self::new_opt(mantissa, exponent, significant_digits)
+            .expect("ScientificYear::new values would overflow i64")
+    }
+    /// Creates a new ScientificYear, but returns `None` if the values provided would overflow when
+    /// computed.
+    pub fn new_opt(mantissa: i64, exponent: u16, significant_digits: u16) -> Option<Self> {
+        ScientificYear {
+            mantissa,
+            exponent,
+            significant_digits,
+        }
+        .validate()
+        .ok()
+    }
+    /// Gets the value of a scientific year, by the following formula:
+    ///
+    /// ```ignore
+    /// sign(mantissa) * abs(mantissa) * 10 ^ exponent
+    /// ```
+    ///
+    /// If the value of a scientific year overflows an i64, it's frankly too big. The universe is
+    /// only 13.77 billion years old, but i64 represents ±9e18, which is 10^8 universe-ages in each
+    /// direction. Nevertheless, it is easy to accidentally write an overflowing year in
+    /// exponential notation. This function panics on overflow as is usual for Rust numerics.
+    ///
+    /// Note that this library validates that the value does not overflow after parsing, so if you
+    /// are reading a parsed value, this function will never panic.
+    pub fn value(&self) -> i64 {
+        self.value_opt()
+            .expect("ScientificYear::value() overflowed i64")
+    }
+
+    /// Gets the value of a scientific year, returning `None` instead of panicking on overflow.
+    pub fn value_opt(&self) -> Option<i64> {
+        let Self {
+            mantissa: m,
+            exponent: exp,
+            ..
+        } = *self;
+        let tens: i64 = 10i64.checked_pow(exp as u32)?;
+        let sign = m.signum();
+        let abs = m.abs();
+        let unsigned = abs.checked_mul(tens)?;
+        unsigned.checked_mul(sign)
+    }
+}
+
 /// Fully represents EDTF Level 1. The representation is lossless.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Edtf {
@@ -144,6 +262,11 @@ pub enum Edtf {
     DateTime(DateTime),
     /// `2018`, `2019-07-09%`, `1973?`, `1956-XX`, etc
     Date(Date),
+    /// `Y170000002`, `Y-170000002`
+    ///
+    /// Years within the range -9999..=9999 are explicitly disallowed. Years must contain MORE THAN
+    /// four digits.
+    Scientific(ScientificYear),
     /// `2018/2019`, `2019-12-31/2020-01-15`, etc
     Range(Date, Date),
     /// `2019/..`
@@ -193,6 +316,7 @@ impl ParsedEdtf {
     fn validate(self) -> Result<Edtf, ParseError> {
         Ok(match self {
             Self::Date(d) => Edtf::Date(d.validate()?),
+            Self::Scientific(scientific) => Edtf::Scientific(scientific.validate()?),
             Self::Range(d, d2) => Edtf::Range(d.validate()?, d2.validate()?),
             Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
             Self::RangeOpenStart(start) => Edtf::RangeOpenStart(start.validate()?),
@@ -448,6 +572,12 @@ mod test {
             )
                 .into())
         );
+    }
+
+    #[test]
+    fn scientific() {
+        let val = ScientificYear::new(17, 7, 3);
+        assert_eq!(val.value(), 17 * 10i64.pow(7));
     }
 }
 

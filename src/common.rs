@@ -183,6 +183,11 @@ pub fn maybe_hyphen(remain: &str) -> (&str, bool) {
     }
 }
 
+/// Has a sanity check cap of 100 digits. Because cmon.
+pub fn take_min_n_digits(n: usize) -> impl FnMut(&str) -> StrResult<&str> {
+    move |remain| nbc::take_while_m_n(n, 100, |x: char| x.is_ascii_digit())(remain)
+}
+
 pub fn take_n_digits(n: usize) -> impl FnMut(&str) -> StrResult<&str> {
     move |remain| nbc::take_while_m_n(n, n, |x: char| x.is_ascii_digit())(remain)
 }
@@ -267,6 +272,19 @@ pub fn sign(remain: &str) -> StrResult<bool> {
         .or(ncc::char('-'))
         .map(|x| x == '+')
         .parse(remain)
+}
+
+pub fn minus_sign<T>(remain: &str, neg_one: T, one: T) -> StrResult<T> {
+    let (remain, minus) = ncc::char('-')
+        .map(|_| ())
+        .optional()
+        .parse(remain)?;
+    let val = if let Some(_) = minus {
+        neg_one
+    } else {
+        one
+    };
+    Ok((remain, val))
 }
 
 /// `-04`, `+04`
