@@ -185,8 +185,8 @@ pub struct Date {
     pub(crate) certainty: Certainty,
 }
 
-/// A year equal to `sign(mantissa) * abs(mantissa) * 10^exponent`, to a precision of `significant`
-/// significant digits.
+/// A year equal to `sign(mantissa) * abs(mantissa) * 10^exponent`, to a precision of
+/// `significant_digits`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ScientificYear {
     /// Includes the sign bit for convenience of representation.

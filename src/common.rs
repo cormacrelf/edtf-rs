@@ -230,6 +230,18 @@ pub fn year_n(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
     }
 }
 
+pub fn year_n_signed(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
+    move |remain| {
+        let (remain, sign) = minus_sign(-1i32, 1)(remain)?;
+        let (remain, four) = take_n_digits(n)(remain)?;
+        let (_, parsed) = nom::parse_to!(four, i32)?;
+        if sign == -1 && parsed == 0 {
+            return Err(nom::Err::Error(NomParseError::from_error_kind(remain, nom::error::ErrorKind::Digit)));
+        }
+        Ok((remain, parsed * sign))
+    }
+}
+
 /// Level 0 only, YYYY-mm-dd only.
 pub fn date_complete(remain: &str) -> StrResult<DateComplete> {
     year_n(4)
@@ -274,17 +286,19 @@ pub fn sign(remain: &str) -> StrResult<bool> {
         .parse(remain)
 }
 
-pub fn minus_sign<T>(remain: &str, neg_one: T, one: T) -> StrResult<T> {
-    let (remain, minus) = ncc::char('-')
-        .map(|_| ())
-        .optional()
-        .parse(remain)?;
-    let val = if let Some(_) = minus {
-        neg_one
-    } else {
-        one
-    };
-    Ok((remain, val))
+pub fn minus_sign<T: Copy>(neg_one: T, one: T) -> impl FnMut(&str) -> StrResult<T> {
+    move |remain| {
+        let (remain, minus) = ncc::char('-')
+            .map(|_| ())
+            .optional()
+            .parse(remain)?;
+        let val = if let Some(_) = minus {
+            neg_one
+        } else {
+            one
+        };
+        Ok((remain, val))
+    }
 }
 
 /// `-04`, `+04`

@@ -56,7 +56,7 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
     let month = month.as_ref().map(|m| m.validate()).transpose()?;
     let day = day.as_ref().map(|m| m.validate()).transpose()?;
 
-    eprintln!("\ncheck_structure: {:?}", date);
+    // eprintln!("\ncheck_structure: {:?}", date);
     match (month, day) {
         // this can't happen if you're parsing, but people might try to construct a date like this
         // manually with zero values
@@ -66,7 +66,7 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
 
     // mask rules
     // this is funny in 2021
-    eprintln!("    check_masks: {:?}", date);
+    // eprintln!("    check_masks: {:?}", date);
     let year_mask = year.1.mask != YearMask::None;
     let month_mask = month.as_ref().map(|x| x.is_masked());
     let day_mask = day.as_ref().map(|x| x.is_masked());
@@ -83,7 +83,7 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
         _ => return Err(Invalid),
     }
 
-    eprintln!("   check_values: {:?}", date);
+    // eprintln!("   check_values: {:?}", date);
     let year_val = year.0;
     let month_val = month.as_ref().and_then(|x| x.value());
     let day_val = day.as_ref().and_then(|x| x.value());
@@ -136,7 +136,10 @@ impl ScientificYear {
     /// `1500S2`/`-1500S2`, `Y15000`/`Y-15000` and `Y-17E7`. ('Negative calendar
     /// year'/`-1985` is not included as one of these.)
     fn validate(self) -> Result<Self, ParseError> {
-        let Self { significant_digits: sd, .. } = self;
+        let Self {
+            significant_digits: sd,
+            ..
+        } = self;
         // if the value overflows an i64, it's frankly too big. The universe is only 13.77 billion
         // years old.
         let v = self.value_opt().ok_or(ParseError::Invalid)?;
@@ -153,9 +156,9 @@ impl ScientificYear {
 
 #[cfg(test)]
 mod test {
+    use super::api::Edtf;
     use super::packed::Certainty::*;
     use super::*;
-    use super::api::Edtf;
 
     #[test]
     fn uncertain_dates_packed() {
@@ -286,36 +289,103 @@ mod test {
     #[test]
     fn scientific() {
         // yes - 1+ digits E
-        assert_eq!(Edtf::parse("Y17E7"), Ok(Edtf::Scientific(ScientificYear::new(17, 7, 0))));
-        assert_eq!(Edtf::parse("Y17E7S3"), Ok(Edtf::Scientific(ScientificYear::new(17, 7, 3))));
+        assert_eq!(
+            Edtf::parse("Y17E7"),
+            Ok(Edtf::Scientific(ScientificYear::new(17, 7, 0)))
+        );
+        assert_eq!(
+            Edtf::parse("Y17E7S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(17, 7, 3)))
+        );
         // yes - 1+ digits E, negative
-        assert_eq!(Edtf::parse("Y-17E7"), Ok(Edtf::Scientific(ScientificYear::new(-17, 7, 0))));
-        assert_eq!(Edtf::parse("Y-17E7S3"), Ok(Edtf::Scientific(ScientificYear::new(-17, 7, 3))));
+        assert_eq!(
+            Edtf::parse("Y-17E7"),
+            Ok(Edtf::Scientific(ScientificYear::new(-17, 7, 0)))
+        );
+        assert_eq!(
+            Edtf::parse("Y-17E7S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(-17, 7, 3)))
+        );
         // yes - <5 digits with E and S
-        assert_eq!(Edtf::parse("Y1745E1S3"), Ok(Edtf::Scientific(ScientificYear::new(1745, 1, 3))));
-        assert_eq!(Edtf::parse("Y1745E0S3"), Ok(Edtf::Scientific(ScientificYear::new(1745, 0, 3))));
+        assert_eq!(
+            Edtf::parse("Y1745E1S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(1745, 1, 3)))
+        );
+        assert_eq!(
+            Edtf::parse("Y1745E0S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(1745, 0, 3)))
+        );
         // yes - 5+ digits
-        assert_eq!(Edtf::parse("Y157900"), Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 0))));
-        assert_eq!(Edtf::parse("Y157900S3"), Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 3))));
+        assert_eq!(
+            Edtf::parse("Y157900"),
+            Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 0)))
+        );
+        assert_eq!(
+            Edtf::parse("Y157900S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 3)))
+        );
         // yes - 5+ digits negative
-        assert_eq!(Edtf::parse("Y-157900"), Ok(Edtf::Scientific(ScientificYear::new(-157900, 0, 0))));
-        assert_eq!(Edtf::parse("Y-157900S3"), Ok(Edtf::Scientific(ScientificYear::new(-157900, 0, 3))));
+        assert_eq!(
+            Edtf::parse("Y-157900"),
+            Ok(Edtf::Scientific(ScientificYear::new(-157900, 0, 0)))
+        );
+        assert_eq!(
+            Edtf::parse("Y-157900S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(-157900, 0, 3)))
+        );
         // yes - 5+ digits E
-        assert_eq!(Edtf::parse("Y157900E3"), Ok(Edtf::Scientific(ScientificYear::new(157900, 3, 0))));
-        assert_eq!(Edtf::parse("Y157900E3S3"), Ok(Edtf::Scientific(ScientificYear::new(157900, 3, 3))));
+        assert_eq!(
+            Edtf::parse("Y157900E3"),
+            Ok(Edtf::Scientific(ScientificYear::new(157900, 3, 0)))
+        );
+        assert_eq!(
+            Edtf::parse("Y157900E3S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(157900, 3, 3)))
+        );
         // yes - 5+ digits E negative
-        assert_eq!(Edtf::parse("Y-157900E3"), Ok(Edtf::Scientific(ScientificYear::new(-157900, 3, 0))));
-        assert_eq!(Edtf::parse("Y-157900E3S3"), Ok(Edtf::Scientific(ScientificYear::new(-157900, 3, 3))));
+        assert_eq!(
+            Edtf::parse("Y-157900E3"),
+            Ok(Edtf::Scientific(ScientificYear::new(-157900, 3, 0)))
+        );
+        assert_eq!(
+            Edtf::parse("Y-157900E3S3"),
+            Ok(Edtf::Scientific(ScientificYear::new(-157900, 3, 3)))
+        );
 
         // no - fewer than 5 digits
         assert_eq!(Edtf::parse("Y1745"), Err(ParseError::Invalid));
         assert_eq!(Edtf::parse("Y1745S3"), Err(ParseError::Invalid));
         // no - overflow
         assert_eq!(Edtf::parse("Y17E200"), Err(ParseError::Invalid));
+        // no - too many significant digits
+        assert_eq!(Edtf::parse("Y12345S7"), Err(ParseError::Invalid));
+
+        // yes - scientific four digit year
+        assert_eq!(
+            Edtf::parse("1234S2"),
+            Ok(Edtf::Scientific(ScientificYear::new(1234, 0, 2)))
+        );
+        // yes - scientific four digit year, negative
+        assert_eq!(
+            Edtf::parse("-1234S2"),
+            Ok(Edtf::Scientific(ScientificYear::new(-1234, 0, 2)))
+        );
     }
 
     #[test]
-    fn negative_dates() {
-        assert_eq!(Edtf::parse("-1900-07-05"), Ok(Edtf::Date(Date::from_ymd(-1900, 7, 5))));
+    fn negative_calendar_dates() {
+        // yes
+        assert_eq!(
+            Edtf::parse("-1900-07-05"),
+            Ok(Edtf::Date(Date::from_ymd(-1900, 7, 5)))
+        );
+        assert_eq!(
+            Edtf::parse("-9999-07-05"),
+            Ok(Edtf::Date(Date::from_ymd(-9999, 7, 5)))
+        );
+        // no - fewer than four digits
+        assert_eq!(Edtf::parse("-999-07-05"), Err(ParseError::Invalid));
+        // no - negative zero not allowed
+        assert_eq!(Edtf::parse("-0000-07-05"), Err(ParseError::Invalid));
     }
 }

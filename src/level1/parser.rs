@@ -6,7 +6,10 @@ use nom::{
 };
 
 use crate::{
-    common::{date_time, hyphen, two_digits, year_n, DateComplete, StrResult, UnvalidatedTime},
+    common::{
+        date_time, hyphen, two_digits, year_n_signed, DateComplete, StrResult,
+        UnvalidatedTime,
+    },
     helpers::ParserExt,
     level_1::ScientificYear,
 };
@@ -72,7 +75,7 @@ fn scientific(remain: &str) -> StrResult<ScientificYear> {
 
 fn scientific_4digit(remain: &str) -> StrResult<ScientificYear> {
     let s = ncc::char('S');
-    let (remain, (year, sd)) = year_n(4).and(ns::preceded(s, ncc::digit1)).parse(remain)?;
+    let (remain, (year, sd)) = year_n_signed(4).and(ns::preceded(s, ncc::digit1)).parse(remain)?;
     let (_, sd) = nom::parse_to!(sd, u16)?;
     Ok((
         remain,
@@ -86,7 +89,7 @@ fn scientific_4digit(remain: &str) -> StrResult<ScientificYear> {
 
 pub fn signed_year_min_n(n: usize) -> impl FnMut(&str) -> StrResult<i64> {
     move |remain| {
-        let (remain, sign) = minus_sign(remain, -1i64, 1i64)?;
+        let (remain, sign) = minus_sign(-1i64, 1i64).parse(remain)?;
         let (remain, digs) = take_min_n_digits(n)(remain)?;
         let (_, parsed) = nom::parse_to!(digs, i64)?;
         Ok((remain, parsed * sign))
@@ -212,13 +215,13 @@ fn certainty(input: &str) -> StrResult<Certainty> {
 }
 
 fn year_maybe_mask(input: &str) -> StrResult<(i32, YearFlags)> {
-    let double_mask = year_n(2)
+    let double_mask = year_n_signed(2)
         .and_ignore(nbc::tag("XX"))
         .map(|i| (i * 100, YearMask::TwoDigits.into()));
-    let single_mask = year_n(3)
+    let single_mask = year_n_signed(3)
         .and_ignore(ncc::char('X'))
         .map(|i| (i * 10, YearMask::OneDigit.into()));
-    let dig_cert = year_n(4).map(|x| (x, Certain.into()));
+    let dig_cert = year_n_signed(4).map(|x| (x, Certain.into()));
     double_mask.or(single_mask).or(dig_cert).parse(input)
 }
 
