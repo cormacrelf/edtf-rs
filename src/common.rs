@@ -242,6 +242,17 @@ pub fn year_n_signed(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
     }
 }
 
+/// n > 0 please
+pub fn signed_year_min_n(n: usize) -> impl FnMut(&str) -> StrResult<i64> {
+    move |remain| {
+        let nonzero_digit = ncc::satisfy(|c| c.is_ascii_digit() && c != '0');
+        let (remain, sign) = minus_sign(-1i64, 1i64).parse(remain)?;
+        let (remain, digs) = nc::recognize(nonzero_digit.and(take_min_n_digits(n - 1)))(remain)?;
+        let (_, parsed) = nom::parse_to!(digs, i64)?;
+        Ok((remain, parsed * sign))
+    }
+}
+
 /// Level 0 only, YYYY-mm-dd only.
 pub fn date_complete(remain: &str) -> StrResult<DateComplete> {
     year_n(4)

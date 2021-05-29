@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 
-mod common;
+pub(crate) mod common;
 mod helpers;
 pub mod level0;
 mod level1;
+mod level2;
 pub use level1::api as level_1;
+pub use level2::api as level_2;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ParseError {

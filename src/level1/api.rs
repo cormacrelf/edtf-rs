@@ -1,6 +1,6 @@
 //! # Level 1
 //!
-//! ## Letter-prefixed calendar year ❌
+//! ## Letter-prefixed calendar year ✅
 //!
 //! > 'Y' may be used at the beginning of the date string to signify that the date is a year, when
 //! (and only when) the year exceeds four digits, i.e. for years later than 9999 or earlier than
@@ -16,8 +16,7 @@
 //! - Can they be followed by a month and day/season?
 //!   - Probably not, because the spec says '*to signify that the date is a year*'.
 //! - Can they take `X/XX` unspecified digits?
-//!   - I don't see why not, but there are no examples of this in the spec. Not that there should
-//!   have to be, but I can see why people havenn't implemented it.
+//!   - In Level 2 there is already the significant digits functionality, which kinda covers this via `S1`/`S2`
 //! - Can they have a `?~%` uncertainty attached?
 //!   - Again, I don't see why not. If you're talking about 10,000BC, it is rare that
 //!   you could actually be certain. But that only makes it more logical that you should be able to
@@ -40,13 +39,13 @@
 //! recency.
 //!
 //! | Feature (?)                      | [PHP][php] | [Dart][dart] | [edtf.js][js] | [edtf-ruby][rb][^prev] |[python-edtf][py][^prev] |
-//! | ---                              | -- | -- | -- | -- |
-//! | `Y17000`, `Y-17000` (base)       | ✅ | ✅ | ✅[^prev] | ✅[^prev] |
-//! | `Y17000-08-18`                   | ❌ | ❌ | ❌ | ❌ |
-//! | `Y1700X`                         | ❌ | ❌ | ❌ | ❌ |
-//! | `Y17000?`                        | ❌ | ❌ | ❌ | ❌ |
-//! | `Y-17000/2003`, `Y17000/..` etc. | ❌ | ❌ | ❌ | ❌ |
-//! | `[Y17000..]`, etc.               | ❌ | ❌ | ❌ | ❌ |
+//! | ---                              | -- | -- | -- | -- | -- |
+//! | `Y17000`, `Y-17000` (base)       | ✅ | ? | ✅ | ✅[^prev] | ✅[^prev] |
+//! | `Y17000-08-18`                   | ? | ? | ❌ | ❌ | ❌ |
+//! | `Y1700X`                         | ? | ? | ❌ | ❌ | ❌ |
+//! | `Y17000?`                        | ? | ? | ❌ | ❌ | ❌ |
+//! | `Y-17000/2003`, `Y17000/..` etc. | ? | ? | ❌ | ❌ | ❌ |
+//! | `[Y17000..]`, etc.               | ? | ? | ❌ | ❌ | ❌ |
 //!
 //! [php]: https://github.com/ProfessionalWiki/EDTF
 //! [dart]: https://github.com/maalexy/edtf
@@ -83,7 +82,7 @@
 //! - unknown start or end: `/[date]`, `[date]/`
 //! - open interval, (for example 'until date' or 'from date onwards'): `../[date]`, `[date]/..`
 //!
-//! ## Negative calendar year ❌ (works programmatically)
+//! ## Negative calendar year ✅
 //!
 //! `-1740`
 
@@ -185,76 +184,6 @@ pub struct Date {
     pub(crate) certainty: Certainty,
 }
 
-/// A year equal to `sign(mantissa) * abs(mantissa) * 10^exponent`, to a precision of
-/// `significant_digits`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ScientificYear {
-    /// Includes the sign bit for convenience of representation.
-    pub mantissa: i64,
-    pub exponent: u16,
-    pub significant_digits: u16,
-}
-
-impl ScientificYear {
-    /// Creates a new ScientificYear with the given mantissa, exponent, and significant digits.
-    ///
-    /// The mantissa contains the sign. This function panics if the values provided would overflow
-    /// when computed.
-    ///
-    /// ```
-    /// use edtf::level_1::{Edtf, ScientificYear};
-    /// let edtf = Edtf::parse("Y17E7S3").unwrap();
-    /// let year = Edtf::Scientific(ScientificYear::new(17, 7, 3));
-    /// assert_eq!(edtf, year);
-    /// ```
-    pub fn new(mantissa: i64, exponent: u16, significant_digits: u16) -> Self {
-        Self::new_opt(mantissa, exponent, significant_digits)
-            .expect("ScientificYear::new values would overflow i64")
-    }
-    /// Creates a new ScientificYear, but returns `None` if the values provided would overflow when
-    /// computed.
-    pub fn new_opt(mantissa: i64, exponent: u16, significant_digits: u16) -> Option<Self> {
-        ScientificYear {
-            mantissa,
-            exponent,
-            significant_digits,
-        }
-        .validate()
-        .ok()
-    }
-    /// Gets the value of a scientific year, by the following formula:
-    ///
-    /// ```ignore
-    /// sign(mantissa) * abs(mantissa) * 10 ^ exponent
-    /// ```
-    ///
-    /// If the value of a scientific year overflows an i64, it's frankly too big. The universe is
-    /// only 13.77 billion years old, but i64 represents ±9e18, which is 10^8 universe-ages in each
-    /// direction. Nevertheless, it is easy to accidentally write an overflowing year in
-    /// exponential notation. This function panics on overflow as is usual for Rust numerics.
-    ///
-    /// Note that this library validates that the value does not overflow after parsing, so if you
-    /// are reading a parsed value, this function will never panic.
-    pub fn value(&self) -> i64 {
-        self.value_opt()
-            .expect("ScientificYear::value() overflowed i64")
-    }
-
-    /// Gets the value of a scientific year, returning `None` instead of panicking on overflow.
-    pub fn value_opt(&self) -> Option<i64> {
-        let Self {
-            mantissa: m,
-            exponent: exp,
-            ..
-        } = *self;
-        let tens: i64 = 10i64.checked_pow(exp as u32)?;
-        let sign = m.signum();
-        let abs = m.abs();
-        let unsigned = abs.checked_mul(tens)?;
-        unsigned.checked_mul(sign)
-    }
-}
-
 /// Fully represents EDTF Level 1. The representation is lossless.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Edtf {
@@ -266,7 +195,7 @@ pub enum Edtf {
     ///
     /// Years within the range -9999..=9999 are explicitly disallowed. Years must contain MORE THAN
     /// four digits.
-    Scientific(ScientificYear),
+    Scientific(i64),
     /// `2018/2019`, `2019-12-31/2020-01-15`, etc
     Range(Date, Date),
     /// `2019/..`
@@ -309,21 +238,6 @@ impl Edtf {
             Self::DateTime(d) => Some(*d),
             _ => None,
         }
-    }
-}
-
-impl ParsedEdtf {
-    fn validate(self) -> Result<Edtf, ParseError> {
-        Ok(match self {
-            Self::Date(d) => Edtf::Date(d.validate()?),
-            Self::Scientific(scientific) => Edtf::Scientific(scientific.validate()?),
-            Self::Range(d, d2) => Edtf::Range(d.validate()?, d2.validate()?),
-            Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
-            Self::RangeOpenStart(start) => Edtf::RangeOpenStart(start.validate()?),
-            Self::RangeOpenEnd(end) => Edtf::RangeOpenEnd(end.validate()?),
-            Self::RangeUnknownStart(start) => Edtf::RangeOpenStart(start.validate()?),
-            Self::RangeUnknownEnd(end) => Edtf::RangeOpenEnd(end.validate()?),
-        })
     }
 }
 
@@ -574,11 +488,6 @@ mod test {
         );
     }
 
-    #[test]
-    fn scientific() {
-        let val = ScientificYear::new(17, 7, 3);
-        assert_eq!(val.value(), 17 * 10i64.pow(7));
-    }
 }
 
 impl From<Date> for Edtf {

@@ -2,19 +2,37 @@ use crate::common::is_valid_complete_date;
 use crate::ParseError;
 use ParseError::*;
 
-use self::{api::ScientificYear, parser::UnvalidatedDate};
-use self::{
-    packed::{DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
-    parser::UnvalidatedDMEnum,
-};
-
 pub mod api;
 mod packed;
 mod parser;
 
-use api::Date;
+use self::{
+    api::{Date, DateTime, Edtf},
+    packed::{Certainty, DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
+    parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
+};
 
-use packed::Certainty;
+impl ParsedEdtf {
+    fn validate(self) -> Result<Edtf, ParseError> {
+        Ok(match self {
+            Self::Date(d) => Edtf::Date(d.validate()?),
+            Self::Scientific(scientific) => {
+                // this shouldn't come from the parser, because we look for a nonzero first digit
+                // but good to check?
+                // if scientific < 10_000 && scientific > -10_000 {
+                //     return Err(ParseError::Invalid)
+                // }
+                Edtf::Scientific(scientific)
+            },
+            Self::Range(d, d2) => Edtf::Range(d.validate()?, d2.validate()?),
+            Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
+            Self::RangeOpenStart(start) => Edtf::RangeOpenStart(start.validate()?),
+            Self::RangeOpenEnd(end) => Edtf::RangeOpenEnd(end.validate()?),
+            Self::RangeUnknownStart(start) => Edtf::RangeOpenStart(start.validate()?),
+            Self::RangeUnknownEnd(end) => Edtf::RangeOpenEnd(end.validate()?),
+        })
+    }
+}
 
 impl PackedU8 {
     fn is_masked(&self) -> bool {
@@ -126,31 +144,6 @@ impl UnvalidatedDate {
             },
             certainty: Default::default(),
         }
-    }
-}
-
-impl ScientificYear {
-    /// If the year is <= 4 digits long, we ought to throw a parse error before this
-    /// validator, so this is not checked here. Instead, this validator can check any of the
-    /// three forms of scientific year for overflow and mathematical sense, namely
-    /// `1500S2`/`-1500S2`, `Y15000`/`Y-15000` and `Y-17E7`. ('Negative calendar
-    /// year'/`-1985` is not included as one of these.)
-    fn validate(self) -> Result<Self, ParseError> {
-        let Self {
-            significant_digits: sd,
-            ..
-        } = self;
-        // if the value overflows an i64, it's frankly too big. The universe is only 13.77 billion
-        // years old.
-        let v = self.value_opt().ok_or(ParseError::Invalid)?;
-        // Now deal with e.g. 15000S44 -- this is nonsensical. We don't allow 'decimal points' of
-        // precision on years.
-        let num_digits = (v as f64).log10().ceil();
-        let sd = sd as f64;
-        if sd > num_digits {
-            return Err(ParseError::Invalid);
-        }
-        Ok(self)
     }
 }
 
@@ -286,90 +279,22 @@ mod test {
         assert_eq!(Date::parse("2019-21-05"), Err(ParseError::Invalid));
     }
 
-    #[test]
-    fn scientific() {
-        // yes - 1+ digits E
-        assert_eq!(
-            Edtf::parse("Y17E7"),
-            Ok(Edtf::Scientific(ScientificYear::new(17, 7, 0)))
-        );
-        assert_eq!(
-            Edtf::parse("Y17E7S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(17, 7, 3)))
-        );
-        // yes - 1+ digits E, negative
-        assert_eq!(
-            Edtf::parse("Y-17E7"),
-            Ok(Edtf::Scientific(ScientificYear::new(-17, 7, 0)))
-        );
-        assert_eq!(
-            Edtf::parse("Y-17E7S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(-17, 7, 3)))
-        );
-        // yes - <5 digits with E and S
-        assert_eq!(
-            Edtf::parse("Y1745E1S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(1745, 1, 3)))
-        );
-        assert_eq!(
-            Edtf::parse("Y1745E0S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(1745, 0, 3)))
-        );
+    fn scientific_l1() {
         // yes - 5+ digits
         assert_eq!(
             Edtf::parse("Y157900"),
-            Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 0)))
+            Ok(Edtf::Scientific(157900))
         );
         assert_eq!(
-            Edtf::parse("Y157900S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 3)))
-        );
-        // yes - 5+ digits negative
-        assert_eq!(
-            Edtf::parse("Y-157900"),
-            Ok(Edtf::Scientific(ScientificYear::new(-157900, 0, 0)))
+            Edtf::parse("Y1234567890"),
+            Ok(Edtf::Scientific(1234567890))
         );
         assert_eq!(
-            Edtf::parse("Y-157900S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(-157900, 0, 3)))
+            Edtf::parse("Y-1234567890"),
+            Ok(Edtf::Scientific(-1234567890))
         );
-        // yes - 5+ digits E
-        assert_eq!(
-            Edtf::parse("Y157900E3"),
-            Ok(Edtf::Scientific(ScientificYear::new(157900, 3, 0)))
-        );
-        assert_eq!(
-            Edtf::parse("Y157900E3S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(157900, 3, 3)))
-        );
-        // yes - 5+ digits E negative
-        assert_eq!(
-            Edtf::parse("Y-157900E3"),
-            Ok(Edtf::Scientific(ScientificYear::new(-157900, 3, 0)))
-        );
-        assert_eq!(
-            Edtf::parse("Y-157900E3S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(-157900, 3, 3)))
-        );
-
-        // no - fewer than 5 digits
+        // no -- <= 4 digits
         assert_eq!(Edtf::parse("Y1745"), Err(ParseError::Invalid));
-        assert_eq!(Edtf::parse("Y1745S3"), Err(ParseError::Invalid));
-        // no - overflow
-        assert_eq!(Edtf::parse("Y17E200"), Err(ParseError::Invalid));
-        // no - too many significant digits
-        assert_eq!(Edtf::parse("Y12345S7"), Err(ParseError::Invalid));
-
-        // yes - scientific four digit year
-        assert_eq!(
-            Edtf::parse("1234S2"),
-            Ok(Edtf::Scientific(ScientificYear::new(1234, 0, 2)))
-        );
-        // yes - scientific four digit year, negative
-        assert_eq!(
-            Edtf::parse("-1234S2"),
-            Ok(Edtf::Scientific(ScientificYear::new(-1234, 0, 2)))
-        );
     }
 
     #[test]
