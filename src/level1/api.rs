@@ -93,7 +93,11 @@ use super::{
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
 };
 pub use crate::common::DateTime;
-use crate::{common::TzOffset, level1::packed::YearFlags, ParseError};
+use crate::{
+    common::{DateComplete, Time, TzOffset},
+    level1::packed::{DMMask, YearFlags},
+    ParseError,
+};
 
 pub use crate::level1::packed::Certainty;
 pub use crate::level1::packed::YearMask;
@@ -487,7 +491,6 @@ mod test {
                 .into())
         );
     }
-
 }
 
 impl From<Date> for Edtf {
@@ -508,4 +511,109 @@ impl FromStr for Edtf {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Edtf::parse(s)
     }
+}
+
+use core::fmt;
+
+impl fmt::Display for Date {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Date {
+            year,
+            month,
+            day,
+            certainty,
+        } = *self;
+        let (year, yf) = year.unpack();
+        match yf.mask {
+            YearMask::None => write!(f, "{:04}", year)?,
+            YearMask::OneDigit => write!(f, "{:03}X", year / 10)?,
+            YearMask::TwoDigits => write!(f, "{:02}XX", year / 100)?,
+        }
+        if let Some(month) = month {
+            let (m, mf) = month.unpack();
+            match mf.mask {
+                DMMask::None => write!(f, "-{:02}", m)?,
+                DMMask::Masked => write!(f, "-XX")?,
+            }
+            if let Some(day) = day {
+                let (d, df) = day.unpack();
+                match df.mask {
+                    DMMask::None => write!(f, "-{:02}", d)?,
+                    DMMask::Masked => write!(f, "-XX")?,
+                }
+            }
+        }
+        if let Some(cert) = match certainty {
+            Certainty::Certain => None,
+            Certainty::Uncertain => Some("?"),
+            Certainty::Approximate => Some("~"),
+            Certainty::ApproximateUncertain => Some("%"),
+        } {
+            write!(f, "{}", cert)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for DateComplete {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let DateComplete { year, month, day } = *self;
+        write!(f, "{:04}-{:02}-{:02}", year, month, day)?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for DateTime {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let DateComplete { year, month, day } = self.date;
+        let Time { hh, mm, ss, tz } = self.time;
+        write!(
+            f,
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+            year, month, day, hh, mm, ss
+        )?;
+        match tz {
+            None => {}
+            Some(TzOffset::Utc) | Some(TzOffset::Offset(0)) => write!(f, "Z")?,
+            Some(TzOffset::Offset(sec)) => {
+                let off_m = (sec / 60) % 60;
+                let off_h = sec / 60 / 60;
+                let sign = if sec.signum() == 1 { "+" } else { "-" };
+                // XXX: we perform no validation here. Do more hardening to make sure the hours are
+                // valid elsewhere! Otherwise it might exceed two digits.
+                write!(f, "{}{:02}:{:02}", sign, off_h, off_m)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for Edtf {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Date(d) => write!(f, "{}", d),
+            Self::Range(d, d2) => write!(f, "{}/{}", d, d2),
+            Self::RangeOpenStart(d) => write!(f, "{}/..", d),
+            Self::RangeOpenEnd(d) => write!(f, "../{}", d),
+            Self::RangeUnknownStart(d) => write!(f, "{}/", d),
+            Self::RangeUnknownEnd(d) => write!(f, "/{}", d),
+            Self::Scientific(s) => write!(f, "{}", s),
+            Self::DateTime(dt) => write!(f, "{}", dt),
+        }
+    }
+}
+
+#[test]
+fn test_display() {
+    macro_rules! test_roundtrip {
+        ($x:literal) => {
+            assert_eq!(Edtf::parse($x).unwrap().to_string(), $x);
+        };
+    }
+
+    test_roundtrip!("2019-08-17T01:56:00+04:30");
+    test_roundtrip!("2019-08-17");
+    test_roundtrip!("2019-08");
+    test_roundtrip!("2019");
+    test_roundtrip!("2019?");
 }
