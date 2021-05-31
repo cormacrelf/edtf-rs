@@ -52,10 +52,6 @@ mod test {
             Ok(Edtf::Scientific(ScientificYear::new(1745, 1, 3)))
         );
         assert_eq!(
-            Edtf::parse("Y1745E0S3"),
-            Ok(Edtf::Scientific(ScientificYear::new(1745, 0, 3)))
-        );
-        assert_eq!(
             Edtf::parse("Y157900S3"),
             Ok(Edtf::Scientific(ScientificYear::new(157900, 0, 3)))
         );
@@ -94,6 +90,8 @@ mod test {
         assert_eq!(Edtf::parse("Y17E200"), Err(ParseError::Invalid));
         // no - too many significant digits
         assert_eq!(Edtf::parse("Y12345S7"), Err(ParseError::Invalid));
+        // no - E must be positive ie nonzero
+        assert_eq!(Edtf::parse("Y1745E0S3"), Err(ParseError::Invalid));
 
         // yes - scientific four digit year
         assert_eq!(

@@ -77,17 +77,17 @@ fn scientific_y(remain: &str) -> StrResult<ScientificYear> {
     let exponent = opt_e
         .map(|e| nom::parse_to!(e, u16))
         .transpose()?
-        .map_or(0, |x| x.1);
-    let significant_digits = opt_s
+        .map(|x| x.1);
+    let sig_digits = opt_s
         .map(|s| nom::parse_to!(s, u16))
         .transpose()?
-        .map_or(0, |x| x.1);
+        .map(|x| x.1);
     Ok((
         remain,
         ScientificYear {
             mantissa,
             exponent,
-            significant_digits,
+            sig_digits,
         },
     ))
 }
@@ -102,8 +102,8 @@ fn scientific_4digit(remain: &str) -> StrResult<ScientificYear> {
         remain,
         ScientificYear {
             mantissa: year as i64,
-            exponent: 0,
-            significant_digits: sd,
+            exponent: None,
+            sig_digits: Some(sd),
         },
     ))
 }

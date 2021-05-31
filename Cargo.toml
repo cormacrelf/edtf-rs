@@ -12,3 +12,6 @@ default = []
 [dependencies]
 chrono = { version = "0.4", default-features = false, optional = true }
 nom = { version = "6", default-features = false }
+
+[dev-dependencies]
+no-panic = "0.1.15"
