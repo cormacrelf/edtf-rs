@@ -603,17 +603,49 @@ impl fmt::Display for Edtf {
     }
 }
 
-#[test]
-fn test_display() {
-    macro_rules! test_roundtrip {
-        ($x:literal) => {
-            assert_eq!(Edtf::parse($x).unwrap().to_string(), $x);
-        };
-    }
+#[cfg(test)]
+macro_rules! test_roundtrip {
+    ($x:literal) => {
+        assert_eq!(Edtf::parse($x).unwrap().to_string(), $x);
+    };
+    ($x:literal, $y:literal) => {
+        assert_eq!(Edtf::parse($x).unwrap().to_string(), $y);
+    };
+}
 
-    test_roundtrip!("2019-08-17T01:56:00+04:30");
+#[test]
+fn test_lossless_roundtrip() {
+    // dates and uncertainties
     test_roundtrip!("2019-08-17");
     test_roundtrip!("2019-08");
     test_roundtrip!("2019");
+    test_roundtrip!("2019-08-17?");
+    test_roundtrip!("2019-08?");
     test_roundtrip!("2019?");
+    test_roundtrip!("2019-08-17~");
+    test_roundtrip!("2019-08%");
+    test_roundtrip!("2019%");
+    // timezones
+    test_roundtrip!("2019-08-17T23:59:30");
+    test_roundtrip!("2019-08-17T23:59:30Z");
+    test_roundtrip!("2019-08-17T01:56:00+04:30");
+    // TODO: this is iffy. Be more lossless.
+    test_roundtrip!("2019-08-17T23:59:30+00", "2019-08-17T23:59:30Z");
+    test_roundtrip!("2019-08-17T23:59:30+00:00", "2019-08-17T23:59:30Z");
+}
+
+#[test]
+fn leap_second() {
+    test_roundtrip!("2019-08-17T23:59:60Z");
+}
+#[test]
+fn leap_second_non_23_59() {
+    assert_eq!(
+        Edtf::parse("2019-08-17T22:59:60Z"),
+        Err(ParseError::OutOfRange),
+    );
+    assert_eq!(
+        Edtf::parse("2019-08-17T23:58:60Z"),
+        Err(ParseError::OutOfRange),
+    );
 }

@@ -19,7 +19,10 @@
 //! | `[date_complete]T[time][shift_hour]`       | `1985-04-12T23:20:30-04`    |
 //! | `[date_complete]T[time][shift_hour_minute]`| `1985-04-12T23:20:30+04:30` |
 //!
-//! ## Time Interval (should probably be called 'Date interval'!)
+//! ## Time Interval
+//!
+//! ISO 8601-1 specifies a "time interval" and this reflects that wording, but EDTF explicitly
+//! disallows time of day in intervals. So it's more of a "date interval".
 //!
 //! The format is `[date]/[date]`.
 //!
@@ -124,8 +127,11 @@ impl UnvalidatedTz {
         match self {
             Self::Utc => Ok(TzOffset::Utc),
             Self::Offset { positive, hh, mm } => {
-                // 24:00 offsets are apparently fine, according to rfc3339
-                if hh > 24 || mm >= 60 {
+                // apparently iso8601-1 doesn't specify a limit on the number of hours offset you can be.
+                // but we will stay sane and cap things at 23:59, because at >= 24h offset you need to
+                // change the date.
+                // We will however validate the minutes.
+                if hh > 23 || mm > 59 {
                     return Err(ParseError::OutOfRange);
                 }
                 let sign = if positive { 1 } else { -1 };
@@ -140,7 +146,17 @@ impl UnvalidatedTime {
     fn validate(self) -> Result<Time, ParseError> {
         let Self { hh, mm, ss, tz } = self;
         let tz = tz.map(|x| x.validate()).transpose()?;
-        if hh > 24 || mm >= 60 || ss >= 60 {
+        // - ISO 8601 only allows 24 as an 'end of day' or such like when used in an interval (e.g.
+        //   two /-separated timestamps.) EDTF doesn't allow intervals with time of day. So hours
+        //   can't be 24.
+        // - Minutes can never be 60+.
+        // - Seconds can top out at 58, 59 or 60 depending on whether that day adds or subtracts a
+        //   leap second. But we don't know in advance and we're not an NTP server so the best we
+        //   can do is check that any ss=60 leap second occurs only on a 23:59 base.
+        if hh > 23 || mm > 59 || ss > 60 {
+            return Err(ParseError::OutOfRange);
+        }
+        if ss == 60 && !(hh == 23 && mm == 59) {
             return Err(ParseError::OutOfRange);
         }
         Ok(Time { hh, mm, ss, tz })

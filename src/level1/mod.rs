@@ -265,11 +265,13 @@ mod test {
 
     #[test]
     fn seasons() {
+        // yes
         assert!(Date::parse("2019-21").is_ok());
         assert!(Date::parse("2019-22").is_ok());
         assert!(Date::parse("2019-23").is_ok());
         assert!(Date::parse("2019-24").is_ok());
-
+        // no
+        assert_eq!(Date::parse("2019-13"), Err(ParseError::OutOfRange));
         assert_eq!(Date::parse("2019-20"), Err(ParseError::OutOfRange));
         assert_eq!(Date::parse("2019-25"), Err(ParseError::OutOfRange));
     }
