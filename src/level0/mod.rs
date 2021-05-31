@@ -126,7 +126,14 @@ impl UnvalidatedTz {
     fn validate(self) -> Result<TzOffset, ParseError> {
         match self {
             Self::Utc => Ok(TzOffset::Utc),
-            Self::Offset { positive, hh, mm } => {
+            Self::Hours { positive, hh } => {
+                let sign = if positive { 1 } else { -1 };
+                if hh > 23 {
+                    return Err(ParseError::OutOfRange);
+                }
+                Ok(TzOffset::Hours(sign * hh as i32))
+            }
+            Self::HoursMinutes { positive, hh, mm } => {
                 // apparently iso8601-1 doesn't specify a limit on the number of hours offset you can be.
                 // but we will stay sane and cap things at 23:59, because at >= 24h offset you need to
                 // change the date.
@@ -136,7 +143,7 @@ impl UnvalidatedTz {
                 }
                 let sign = if positive { 1 } else { -1 };
                 let secs = 3600 * hh as i32 + 60 * mm as i32;
-                Ok(TzOffset::Offset(sign * secs))
+                Ok(TzOffset::Seconds(sign * secs))
             }
         }
     }

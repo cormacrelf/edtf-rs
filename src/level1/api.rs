@@ -55,7 +55,6 @@
 //! [^prev]: Using `y` instead of `Y`. `edtf-ruby` and `python-edtf` do not yet support the latest
 //! draft.
 //!
-//!
 //! ## Seasons ✅
 //!
 //! Using Spring=21, Summer=22, Autumn=23, Winter=24.
@@ -102,6 +101,9 @@ use crate::{
 pub use crate::level1::packed::Certainty;
 pub use crate::level1::packed::YearMask;
 
+use core::fmt;
+use crate::helpers;
+
 #[cfg(feature = "chrono")]
 mod chrono_interop;
 
@@ -122,7 +124,8 @@ pub trait GetTimezone {
 impl GetTimezone for DateTime {
     fn utc_offset_sec(&self) -> Option<i32> {
         match self.time.tz {
-            Some(TzOffset::Offset(sec)) => Some(sec),
+            Some(TzOffset::Seconds(sec)) => Some(sec),
+            Some(TzOffset::Hours(h)) => Some(h * 3600),
             Some(TzOffset::Utc) => Some(0),
             None => None,
         }
@@ -180,7 +183,7 @@ pub enum DatePrecision {
 }
 
 /// An EDTF date. Represents a standalone date or one end of a range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Date {
     pub(crate) year: PackedYear,
     pub(crate) month: Option<PackedU8>,
@@ -513,8 +516,6 @@ impl FromStr for Edtf {
     }
 }
 
-use core::fmt;
-
 impl fmt::Display for Date {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Date {
@@ -524,10 +525,12 @@ impl fmt::Display for Date {
             certainty,
         } = *self;
         let (year, yf) = year.unpack();
+        let sign = helpers::sign_str_if_neg(year);
+        let year = year.abs();
         match yf.mask {
-            YearMask::None => write!(f, "{:04}", year)?,
-            YearMask::OneDigit => write!(f, "{:03}X", year / 10)?,
-            YearMask::TwoDigits => write!(f, "{:02}XX", year / 100)?,
+            YearMask::None => write!(f, "{}{:04}", sign, year)?,
+            YearMask::OneDigit => write!(f, "{}{:03}X", sign, year / 10)?,
+            YearMask::TwoDigits => write!(f, "{}{:02}XX", sign, year / 100)?,
         }
         if let Some(month) = month {
             let (m, mf) = month.unpack();
@@ -555,6 +558,12 @@ impl fmt::Display for Date {
     }
 }
 
+impl fmt::Debug for Date {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl fmt::Display for DateComplete {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let DateComplete { year, month, day } = *self;
@@ -574,14 +583,17 @@ impl fmt::Display for DateTime {
         )?;
         match tz {
             None => {}
-            Some(TzOffset::Utc) | Some(TzOffset::Offset(0)) => write!(f, "Z")?,
-            Some(TzOffset::Offset(sec)) => {
-                let off_m = (sec / 60) % 60;
-                let off_h = sec / 60 / 60;
-                let sign = if sec.signum() == 1 { "+" } else { "-" };
+            Some(TzOffset::Utc) => write!(f, "Z")?,
+            Some(TzOffset::Hours(h)) => {
+                let off_h = h % 24;
+                write!(f, "{:+03}", off_h)?;
+            }
+            Some(TzOffset::Seconds(s)) => {
+                let off_m = (s.abs() / 60) % 60;
+                let off_h = (s / 60 / 60) % 24;
                 // XXX: we perform no validation here. Do more hardening to make sure the hours are
                 // valid elsewhere! Otherwise it might exceed two digits.
-                write!(f, "{}{:02}:{:02}", sign, off_h, off_m)?;
+                write!(f, "{:+03}:{:02}", off_h, off_m)?;
             }
         }
         Ok(())
@@ -625,21 +637,28 @@ fn test_lossless_roundtrip() {
     test_roundtrip!("2019-08-17~");
     test_roundtrip!("2019-08%");
     test_roundtrip!("2019%");
+    // funky years
+    test_roundtrip!("0043-08");
+    test_roundtrip!("-0043-08");
     // timezones
     test_roundtrip!("2019-08-17T23:59:30");
     test_roundtrip!("2019-08-17T23:59:30Z");
     test_roundtrip!("2019-08-17T01:56:00+04:30");
-    // TODO: this is iffy. Be more lossless.
-    test_roundtrip!("2019-08-17T23:59:30+00", "2019-08-17T23:59:30Z");
-    test_roundtrip!("2019-08-17T23:59:30+00:00", "2019-08-17T23:59:30Z");
+    test_roundtrip!("2019-08-17T23:59:30+00");
+    test_roundtrip!("2019-08-17T23:59:30+04");
+    test_roundtrip!("2019-08-17T23:59:30-04");
+    test_roundtrip!("2019-08-17T23:59:30+00:00");
+    test_roundtrip!("2019-08-17T23:59:30+00:05");
+    test_roundtrip!("2019-08-17T23:59:30+23:59");
+    test_roundtrip!("2019-08-17T23:59:30-10:00");
+    test_roundtrip!("2019-08-17T23:59:30-10:19");
 }
 
 #[test]
 fn leap_second() {
     test_roundtrip!("2019-08-17T23:59:60Z");
-}
-#[test]
-fn leap_second_non_23_59() {
+    // no, leap seconds are always inserted at 23:59:60.
+    // (unless they're removed, in which case 23:59:59 is removed.)
     assert_eq!(
         Edtf::parse("2019-08-17T22:59:60Z"),
         Err(ParseError::OutOfRange),

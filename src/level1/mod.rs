@@ -23,7 +23,7 @@ impl ParsedEdtf {
                 //     return Err(ParseError::Invalid)
                 // }
                 Edtf::Scientific(scientific)
-            },
+            }
             Self::Range(d, d2) => Edtf::Range(d.validate()?, d2.validate()?),
             Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
             Self::RangeOpenStart(start) => Edtf::RangeOpenStart(start.validate()?),
@@ -283,14 +283,8 @@ mod test {
 
     fn scientific_l1() {
         // yes - 5+ digits
-        assert_eq!(
-            Edtf::parse("Y157900"),
-            Ok(Edtf::Scientific(157900))
-        );
-        assert_eq!(
-            Edtf::parse("Y1234567890"),
-            Ok(Edtf::Scientific(1234567890))
-        );
+        assert_eq!(Edtf::parse("Y157900"), Ok(Edtf::Scientific(157900)));
+        assert_eq!(Edtf::parse("Y1234567890"), Ok(Edtf::Scientific(1234567890)));
         assert_eq!(
             Edtf::parse("Y-1234567890"),
             Ok(Edtf::Scientific(-1234567890))
@@ -309,6 +303,10 @@ mod test {
         assert_eq!(
             Edtf::parse("-9999-07-05"),
             Ok(Edtf::Date(Date::from_ymd(-9999, 7, 5)))
+        );
+        assert_eq!(
+            Edtf::parse("-0043-07-05"),
+            Ok(Edtf::Date(Date::from_ymd(-43, 7, 5)))
         );
         // no - fewer than four digits
         assert_eq!(Edtf::parse("-999-07-05"), Err(ParseError::Invalid));

@@ -39,8 +39,11 @@ pub(crate) struct Time {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TzOffset {
     Utc,
-    /// A number of seconds offset from UTC
-    Offset(i32),
+    /// A number of hours only
+    Hours(i32),
+    /// `+04:30`
+    /// A number of seconds offset from UTC. Seconds are not serialized, but hours/minutes are.
+    Seconds(i32),
 }
 
 #[cfg(feature = "chrono")]
@@ -219,7 +222,8 @@ pub struct UnvalidatedTime {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum UnvalidatedTz {
     Utc,
-    Offset { positive: bool, hh: u8, mm: u8 },
+    Hours { positive: bool, hh: u8 },
+    HoursMinutes { positive: bool, hh: u8, mm: u8 },
 }
 
 pub fn year_n(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
@@ -315,10 +319,9 @@ pub fn minus_sign<T: Copy>(neg_one: T, one: T) -> impl FnMut(&str) -> StrResult<
 /// `-04`, `+04`
 fn shift_hour(remain: &str) -> StrResult<UnvalidatedTz> {
     sign.and(two_digits::<u8>)
-        .map(|(positive, hh)| UnvalidatedTz::Offset {
+        .map(|(positive, hh)| UnvalidatedTz::Hours {
             positive,
             hh,
-            mm: 0,
         })
         .parse(remain)
 }
@@ -328,6 +331,6 @@ fn shift_hour_minute(remain: &str) -> StrResult<UnvalidatedTz> {
     sign.and(two_digits::<u8>)
         .and_ignore(ncc::char(':'))
         .and(two_digits::<u8>)
-        .map(|((positive, hh), mm)| UnvalidatedTz::Offset { positive, hh, mm })
+        .map(|((positive, hh), mm)| UnvalidatedTz::HoursMinutes { positive, hh, mm })
         .parse(remain)
 }

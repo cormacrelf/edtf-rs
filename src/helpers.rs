@@ -1,6 +1,16 @@
 use core::marker::PhantomData;
 use nom::{error::ErrorKind, error::ParseError, Err, IResult, InputLength, Parser};
 
+pub(crate) fn sign_str_always(n: i32) -> &'static str {
+    if n.signum() >= 0 { "+" } else { "-" }
+}
+
+pub(crate) fn sign_str_if_neg(n: i32) -> &'static str {
+    if n.signum() == -1 { "-" } else { "" }
+}
+
+// nom
+
 pub struct Optional<P: Parser<I, O, E>, I, O, E> {
     inner: P,
     phantom: PhantomData<(I, O, E)>,
@@ -61,7 +71,9 @@ where
         Ok((input, me))
     }
 }
+
 pub trait ParserExt<I, O, E>: Parser<I, O, E> {
+    /// Equivalent to wrapping a parser with [nom::combinator::opt].
     fn optional(self) -> Optional<Self, I, O, E>
     where
         Self: core::marker::Sized,
@@ -71,6 +83,7 @@ pub trait ParserExt<I, O, E>: Parser<I, O, E> {
             phantom: Default::default(),
         }
     }
+    /// Equivalent to wrapping a parser with [nom::combinator::all_consuming].
     fn complete(self) -> Complete<Self, I, O, E>
     where
         Self: core::marker::Sized,
@@ -80,6 +93,7 @@ pub trait ParserExt<I, O, E>: Parser<I, O, E> {
             phantom: Default::default(),
         }
     }
+    /// Equivalent to following a parser with `let (remain, _) = g(remain)?;`
     fn and_ignore<G, O2>(self, g: G) -> AndIgnore<Self, G, I, O, O2, E>
     where
         G: Parser<I, O2, E>,
