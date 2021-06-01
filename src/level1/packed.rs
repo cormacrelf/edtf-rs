@@ -172,6 +172,12 @@ pub enum DMMask {
     Masked = 1,
 }
 
+impl Default for DMMask {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 impl From<u8> for DMMask {
     fn from(bits: u8) -> Self {
         match bits {
@@ -183,7 +189,7 @@ impl From<u8> for DMMask {
 }
 
 // 3 bits total
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct DMFlags {
     pub(crate) certainty: Certainty,
     pub(crate) mask: DMMask,

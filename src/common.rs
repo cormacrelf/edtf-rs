@@ -17,6 +17,7 @@ pub struct DateComplete {
     pub(crate) day: NonZeroU8,
 }
 
+#[allow(rustdoc::broken_intra_doc_links)]
 /// A DateTime object.
 ///
 /// This has minimal introspection methods. Prefer to use its implementation of
@@ -36,14 +37,18 @@ pub(crate) struct Time {
     pub tz: Option<TzOffset>,
 }
 
+/// If `features = ["chrono"]` is enabled, then this can act as a [chrono::TimeZone]. This can
+/// preserve the level of brevity.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum TzOffset {
+pub enum TzOffset {
+    /// `Z`
     Utc,
+    /// `+04`
     /// A number of hours only
     Hours(i32),
     /// `+04:30`
-    /// A number of seconds offset from UTC. Seconds are not serialized, but hours/minutes are.
-    Seconds(i32),
+    /// A number of minutes offset from UTC.
+    Minutes(i32),
 }
 
 #[cfg(feature = "chrono")]
@@ -84,8 +89,14 @@ impl DateTime {
                 let utc = chrono_tz_datetime(&chrono::Utc, date, time);
                 utc.with_timezone(tz)
             }
-            Some(TzOffset::Offset(signed_seconds)) => {
-                let fixed_zone = chrono::FixedOffset::east_opt(signed_seconds)
+            Some(TzOffset::Hours(hours)) => {
+                let fixed_zone = chrono::FixedOffset::east_opt(hours * 3600)
+                    .expect("time zone offset out of bounds");
+                let fixed_dt = chrono_tz_datetime(&fixed_zone, date, time);
+                fixed_dt.with_timezone(tz)
+            }
+            Some(TzOffset::Minutes(signed_min)) => {
+                let fixed_zone = chrono::FixedOffset::east_opt(signed_min * 60)
                     .expect("time zone offset out of bounds");
                 let fixed_dt = chrono_tz_datetime(&fixed_zone, date, time);
                 fixed_dt.with_timezone(tz)
@@ -147,13 +158,14 @@ fn leap_year() {
     assert!(!is_leap_year(-309));
 }
 
+pub(crate) const MONTH_DAYCOUNT: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+pub(crate) const MONTH_DAYCOUNT_LEAP: [u8; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 pub(crate) fn is_valid_complete_date(
     year: i32,
     month: u8,
     day: u8,
 ) -> Result<DateComplete, ParseError> {
-    const MONTH_DAYCOUNT: [u8; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    const MONTH_DAYCOUNT_LEAP: [u8; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let month = NonZeroU8::new(month).ok_or(ParseError::OutOfRange)?;
     let day = NonZeroU8::new(day).ok_or(ParseError::OutOfRange)?;
     let m = month.get();
@@ -241,7 +253,10 @@ pub fn year_n_signed(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
         let (remain, four) = take_n_digits(n)(remain)?;
         let (_, parsed) = nom::parse_to!(four, i32)?;
         if sign == -1 && parsed == 0 {
-            return Err(nom::Err::Error(NomParseError::from_error_kind(remain, nom::error::ErrorKind::Digit)));
+            return Err(nom::Err::Error(NomParseError::from_error_kind(
+                remain,
+                nom::error::ErrorKind::Digit,
+            )));
         }
         Ok((remain, parsed * sign))
     }
@@ -304,15 +319,8 @@ pub fn sign(remain: &str) -> StrResult<bool> {
 
 pub fn minus_sign<T: Copy>(neg_one: T, one: T) -> impl FnMut(&str) -> StrResult<T> {
     move |remain| {
-        let (remain, minus) = ncc::char('-')
-            .map(|_| ())
-            .optional()
-            .parse(remain)?;
-        let val = if let Some(_) = minus {
-            neg_one
-        } else {
-            one
-        };
+        let (remain, minus) = ncc::char('-').map(|_| ()).optional().parse(remain)?;
+        let val = if let Some(_) = minus { neg_one } else { one };
         Ok((remain, val))
     }
 }
@@ -320,10 +328,7 @@ pub fn minus_sign<T: Copy>(neg_one: T, one: T) -> impl FnMut(&str) -> StrResult<
 /// `-04`, `+04`
 fn shift_hour(remain: &str) -> StrResult<UnvalidatedTz> {
     sign.and(two_digits::<u8>)
-        .map(|(positive, hh)| UnvalidatedTz::Hours {
-            positive,
-            hh,
-        })
+        .map(|(positive, hh)| UnvalidatedTz::Hours { positive, hh })
         .parse(remain)
 }
 

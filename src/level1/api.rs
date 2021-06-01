@@ -93,7 +93,7 @@ use super::{
 };
 pub use crate::common::DateTime;
 use crate::{
-    common::{DateComplete, Time, TzOffset},
+    common::{DateComplete, Time},
     level1::packed::{DMMask, YearFlags},
     ParseError,
 };
@@ -108,30 +108,24 @@ use crate::helpers;
 #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 mod chrono_interop;
 
+pub use crate::common::TzOffset;
+
 #[allow(rustdoc::broken_intra_doc_links)]
 /// A helper trait for getting timezone information from some value. (Especially [chrono::DateTime]
 /// or [chrono::NaiveDateTime].)
 ///
 /// Implementations for the `chrono` types are included with `feature = ["chrono"]`.
+///
+/// Not implemented on [DateTime] because this is only used as a bound on `impl<T> From<T> for DateTime`
+/// implementations.
 pub trait GetTimezone {
     /// Return the number of seconds difference from UTC.
     ///
     /// - `None` represents NO timezone information on the EDTF timestamp.
-    /// - `Some(0)` represents a `Z` timezone, i.e. UTC/Zulu time.
-    /// - `Some(3600)` represents `+01:00`
-    /// - `Some(-16_200)` represents `-04:30`
-    fn utc_offset_sec(&self) -> Option<i32>;
-}
-
-impl GetTimezone for DateTime {
-    fn utc_offset_sec(&self) -> Option<i32> {
-        match self.time.tz {
-            Some(TzOffset::Seconds(sec)) => Some(sec),
-            Some(TzOffset::Hours(h)) => Some(h * 3600),
-            Some(TzOffset::Utc) => Some(0),
-            None => None,
-        }
-    }
+    /// - `Some(TzOffset::Utc)` represents a `Z` timezone, i.e. UTC/Zulu time.
+    /// - `Some(TzOffset::Hours(1))` represents `+01
+    /// - `Some(TzOffset::Minutes(-16_200))` represents `-04:30`
+    fn tz_offset(&self) -> Option<TzOffset>;
 }
 
 // TODO: Hash everywhere
@@ -590,11 +584,9 @@ impl fmt::Display for DateTime {
                 let off_h = h % 24;
                 write!(f, "{:+03}", off_h)?;
             }
-            Some(TzOffset::Seconds(s)) => {
-                let off_m = (s.abs() / 60) % 60;
-                let off_h = (s / 60 / 60) % 24;
-                // XXX: we perform no validation here. Do more hardening to make sure the hours are
-                // valid elsewhere! Otherwise it might exceed two digits.
+            Some(TzOffset::Minutes(min)) => {
+                let off_m = (min.abs()) % 60;
+                let off_h = (min / 60) % 24;
                 write!(f, "{:+03}:{:02}", off_h, off_m)?;
             }
         }
