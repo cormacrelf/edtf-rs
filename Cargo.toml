@@ -3,6 +3,9 @@ name = "edtf"
 version = "0.1.0"
 authors = ["Cormac Relf <web@cormacrelf.net>"]
 edition = "2018"
+description = "EDTF parser"
+license = "MPL-2.0"
+repository = "https://github.com/cormacrelf/edtf-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
