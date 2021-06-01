@@ -27,33 +27,40 @@
 //! For compatibility reasons, edtf-rs won't support these unless there is a more precise revision
 //! of the spec that clarifies `Y`-years' status in the grammar. This is, however, the only reason
 //! why. It appears that the test suites for the other implementations draw almost entirely from
-//! the spec document itself; I haven't seen a test for `Y`-years other than the two examples given
-//! in the spec.
+//! the spec document itself; I haven't seen a test for L1 `Y`-years other than the two examples
+//! given in the spec.
 //!
 //! Tests: [php](https://github.com/ProfessionalWiki/EDTF/blob/c0f54c0c8dff3c00f9b32ea3e773315d6a5f2c9e/tests/Functional/Level1/PrefixedYearTest.php),
 //! [js]()
 //! [rb](https://github.com/inukshuk/edtf-ruby/blob/7ee86d81ddb7d6503d5b282a409eb43e51f27186/spec/edtf/parser_spec.rb#L74-L80),
 //! [py](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L101-L103) but [considers `y17e7-12-26` to be "not implemented"](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L195) rather than not part of the spec.
 //!
-//! This table lists compatibility as of 2021-05-26, with implementations ordered roughly by
-//! recency.
+//! This table lists compatibility as of 2021-05-26.
 //!
-//! | Feature (?)                      | [PHP][php] | [Dart][dart] | [edtf.js][js] | [edtf-ruby][rb][^prev] |[python-edtf][py][^prev] |
-//! | ---                              | -- | -- | -- | -- | -- |
-//! | `Y17000`, `Y-17000` (base)       | ✅ | ? | ✅ | ✅[^prev] | ✅[^prev] |
-//! | `Y17000-08-18`                   | ? | ? | ❌ | ❌ | ❌ |
-//! | `Y1700X`                         | ? | ? | ❌ | ❌ | ❌ |
-//! | `Y17000?`                        | ? | ? | ❌ | ❌ | ❌ |
-//! | `Y-17000/2003`, `Y17000/..` etc. | ? | ? | ❌ | ❌ | ❌ |
-//! | `[Y17000..]`, etc.               | ? | ? | ❌ | ❌ | ❌ |
+
+//! | Implementation                   | Rust    | [validator][v] | [PHP][php] | [Dart][dart] | [edtf.js][js] | [edtf-ruby][rb] | [python-edtf][py] |
+//! | ---                              | --      | --             | --         | --           | --            | --              | --                |
+//! | Last Updated                     |         | 2020-11        | 2021-05    | 2019         | 2020-11       | 2020-11         | 2018-06           |
+//! | Draft version supported          | 2019-02 | 2019-02        | 2019-02    | 2019-02      | 2019-02       | 2012 ⚠️          | 2012 ⚠️            |
+//! | More info                        |         | [info][vh]     |            |              |               |                 |                   |
+//! | Rejects 4-digit `Y1234`          | ✅      | ✅             | ❌         | ❌           | ✅            | ✅              | ✅                |
+//! | `Y17000`, `Y-17000` (base)       | ✅      | ✅             | ✅         | ✅           | ✅            | ✅              | ✅                |
+//! | `Y17000-08-18`                   | ❌      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
+//! | `Y1700X`                         | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
+//! | `Y17000?`                        | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
+//! | `Y-17000/2003`, `Y17000/..` etc. | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
+//! | `[Y17000..]`, etc.               | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
+
 //!
+//! [v]: https://digital2.library.unt.edu/edtf/
+//! [vh]: https://library.unt.edu/digital-projects-unit/metadata/fields/date/
 //! [php]: https://github.com/ProfessionalWiki/EDTF
 //! [dart]: https://github.com/maalexy/edtf
 //! [js]: https://npmjs.com/package/edtf/
 //! [rb]: https://rubygems.org/gems/edtf/
 //! [py]: https://pypi.org/project/edtf/
-//! [^prev]: Using `y` instead of `Y`. `edtf-ruby` and `python-edtf` do not yet support the latest
-//! draft.
+//!
+//! *⚠️: The 2012 draft uses the old `y12345` syntax.*
 //!
 //! ## Seasons ✅
 //!
@@ -85,6 +92,7 @@
 //!
 //! `-1740`
 
+use core::convert::TryInto;
 use core::str::FromStr;
 
 use super::{
@@ -101,8 +109,8 @@ use crate::{
 pub use crate::level1::packed::Certainty;
 pub use crate::level1::packed::YearMask;
 
-use core::fmt;
 use crate::helpers;
+use core::fmt;
 
 #[cfg(feature = "chrono")]
 #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
@@ -178,7 +186,7 @@ pub enum DatePrecision {
     Season(i32, Season),
 }
 
-/// An EDTF date. Represents a standalone date or one end of a range.
+/// An EDTF date. Represents a standalone date or one end of a interval.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Date {
     pub(crate) year: PackedYear,
@@ -196,19 +204,53 @@ pub enum Edtf {
     Date(Date),
     /// `Y170000002`, `Y-170000002`
     ///
-    /// Years within the range -9999..=9999 are explicitly disallowed. Years must contain MORE THAN
-    /// four digits.
-    Scientific(i64),
+    /// Years within the interval -9999..=9999 are explicitly disallowed. Years must contain MORE
+    /// THAN four digits.
+    YYear(YYear),
     /// `2018/2019`, `2019-12-31/2020-01-15`, etc
-    Range(Date, Date),
+    Interval(Date, Date),
     /// `2019/..`
-    RangeOpenStart(Date),
+    IntervalOpenFrom(Date),
     /// `../2019`
-    RangeOpenEnd(Date),
+    IntervalOpenTo(Date),
     /// `2019/`
-    RangeUnknownStart(Date),
+    IntervalUnknownFrom(Date),
     /// `/2019`
-    RangeUnknownEnd(Date),
+    IntervalUnknownTo(Date),
+}
+
+/// Represents a 5+ digit, signed year like `Y12345`, `Y-17000`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct YYear(i64);
+
+impl YYear {
+    pub fn year(&self) -> i64 {
+        self.0
+    }
+    pub(crate) fn raw(y: i64) -> Self {
+        Self(y)
+    }
+    /// If the value is a four-digit date (invalid for `Y`-years), returns None.
+    pub fn new_opt(value: i64) -> Option<Self> {
+        if helpers::inside_9999(value) {
+            return None;
+        }
+        Some(Self(value))
+    }
+
+    /// If the value is a four-digit date, returns an [Edtf::Date] calendar date instead.
+    pub fn new_or_cal(value: i64) -> Result<Self, Edtf> {
+        if helpers::inside_9999(value) {
+            let date = value
+                .try_into()
+                .ok()
+                .and_then(|y| Date::from_ymd_opt(y, 0, 0))
+                .map(Edtf::Date)
+                .expect("should have already validated as within -9999..=9999");
+            return Err(date);
+        }
+        Ok(Self(value))
+    }
 }
 
 /// ## Creating an [Edtf]
@@ -232,7 +274,7 @@ impl Edtf {
     }
     pub fn as_range(&self) -> Option<(Date, Date)> {
         match self {
-            Self::Range(d, d2) => Some((*d, *d2)),
+            Self::Interval(d, d2) => Some((*d, *d2)),
             _ => None,
         }
     }
@@ -500,7 +542,7 @@ impl From<Date> for Edtf {
 
 impl From<(Date, Date)> for Edtf {
     fn from((a, b): (Date, Date)) -> Self {
-        Self::Range(a, b)
+        Self::Interval(a, b)
     }
 }
 
@@ -594,16 +636,22 @@ impl fmt::Display for DateTime {
     }
 }
 
+impl fmt::Display for YYear {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Y{}", self.0)
+    }
+}
+
 impl fmt::Display for Edtf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Date(d) => write!(f, "{}", d),
-            Self::Range(d, d2) => write!(f, "{}/{}", d, d2),
-            Self::RangeOpenStart(d) => write!(f, "{}/..", d),
-            Self::RangeOpenEnd(d) => write!(f, "../{}", d),
-            Self::RangeUnknownStart(d) => write!(f, "{}/", d),
-            Self::RangeUnknownEnd(d) => write!(f, "/{}", d),
-            Self::Scientific(s) => write!(f, "{}", s),
+            Self::Interval(d, d2) => write!(f, "{}/{}", d, d2),
+            Self::IntervalOpenFrom(d) => write!(f, "{}/..", d),
+            Self::IntervalOpenTo(d) => write!(f, "../{}", d),
+            Self::IntervalUnknownFrom(d) => write!(f, "{}/", d),
+            Self::IntervalUnknownTo(d) => write!(f, "/{}", d),
+            Self::YYear(s) => write!(f, "{}", s),
             Self::DateTime(dt) => write!(f, "{}", dt),
         }
     }

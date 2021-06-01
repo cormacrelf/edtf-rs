@@ -9,6 +9,14 @@ pub(crate) fn sign_str_if_neg(n: i32) -> &'static str {
     if n.signum() == -1 { "-" } else { "" }
 }
 
+pub(crate) fn inside_9999(n: i64) -> bool {
+    n >= -9999 && n <= 9999
+}
+
+pub(crate) fn outside_9999(n: i64) -> bool {
+    !inside_9999(n)
+}
+
 // nom
 
 pub struct Optional<P: Parser<I, O, E>, I, O, E> {

@@ -1,3 +1,4 @@
+use crate::helpers::{inside_9999, outside_9999};
 use crate::ParseError;
 
 /// A year equal to `mantissa * 10^exponent`, to a precision of `sig_digits`.
@@ -90,16 +91,7 @@ fn some_if_nonzero(n: u16) -> Option<u16> {
     Some(n).filter(|&x| x > 0)
 }
 
-fn inside_9999(n: i64) -> bool {
-    n >= -9999 && n <= 9999
-}
-
-fn outside_9999(n: i64) -> bool {
-    !inside_9999(n)
-}
-
 impl ScientificYear {
-
     /// Gets the value of a scientific year, by the formula `mantissa * 10 ^ exponent`
     ///
     /// Note that this library validates that the value does not overflow after parsing, and it is

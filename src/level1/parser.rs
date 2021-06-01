@@ -22,12 +22,12 @@ use super::packed::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ParsedEdtf {
     Date(UnvalidatedDate),
-    Scientific(i64),
-    Range(UnvalidatedDate, UnvalidatedDate),
-    RangeOpenEnd(UnvalidatedDate),
-    RangeOpenStart(UnvalidatedDate),
-    RangeUnknownStart(UnvalidatedDate),
-    RangeUnknownEnd(UnvalidatedDate),
+    YYear(i64),
+    Interval(UnvalidatedDate, UnvalidatedDate),
+    IntervalOpenTo(UnvalidatedDate),
+    IntervalOpenFrom(UnvalidatedDate),
+    IntervalUnknownFrom(UnvalidatedDate),
+    IntervalUnknownTo(UnvalidatedDate),
     DateTime(DateComplete, UnvalidatedTime),
 }
 
@@ -43,15 +43,15 @@ impl ParsedEdtf {
 }
 
 fn level1(input: &str) -> StrResult<ParsedEdtf> {
-    let sci = scientific_y_l1.map(|sy| ParsedEdtf::Scientific(sy));
+    let sci = scientific_y_l1.map(|sy| ParsedEdtf::YYear(sy));
     let dt = date_time.map(|(d, t)| ParsedEdtf::DateTime(d, t));
     let single = date_certainty.complete().map(ParsedEdtf::Date);
-    let range = date_range.map(|(a, b)| ParsedEdtf::Range(a, b));
+    let range = date_range.map(|(a, b)| ParsedEdtf::Interval(a, b));
 
-    let ru_start = range_unknown_start.map(ParsedEdtf::RangeUnknownStart);
-    let ru_end = range_unknown_end.map(ParsedEdtf::RangeUnknownEnd);
-    let ro_start = range_open_start.map(ParsedEdtf::RangeOpenStart);
-    let ro_end = range_open_end.map(ParsedEdtf::RangeOpenEnd);
+    let ru_start = range_unknown_start.map(ParsedEdtf::IntervalUnknownFrom);
+    let ru_end = range_unknown_end.map(ParsedEdtf::IntervalUnknownTo);
+    let ro_start = range_open_start.map(ParsedEdtf::IntervalOpenFrom);
+    let ro_end = range_open_end.map(ParsedEdtf::IntervalOpenTo);
 
     sci.or(single)
         .or(dt)

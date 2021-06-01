@@ -7,7 +7,7 @@ mod packed;
 mod parser;
 
 use self::{
-    api::{Date, DateTime, Edtf},
+    api::{Date, DateTime, Edtf, YYear},
     packed::{Certainty, DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
 };
@@ -16,20 +16,20 @@ impl ParsedEdtf {
     fn validate(self) -> Result<Edtf, ParseError> {
         Ok(match self {
             Self::Date(d) => Edtf::Date(d.validate()?),
-            Self::Scientific(scientific) => {
+            Self::YYear(y) => {
                 // this shouldn't come from the parser, because we look for a nonzero first digit
                 // but good to check?
                 // if scientific < 10_000 && scientific > -10_000 {
                 //     return Err(ParseError::Invalid)
                 // }
-                Edtf::Scientific(scientific)
+                Edtf::YYear(YYear::new_opt(y).ok_or(ParseError::Invalid)?)
             }
-            Self::Range(d, d2) => Edtf::Range(d.validate()?, d2.validate()?),
+            Self::Interval(d, d2) => Edtf::Interval(d.validate()?, d2.validate()?),
             Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
-            Self::RangeOpenStart(start) => Edtf::RangeOpenStart(start.validate()?),
-            Self::RangeOpenEnd(end) => Edtf::RangeOpenEnd(end.validate()?),
-            Self::RangeUnknownStart(start) => Edtf::RangeOpenStart(start.validate()?),
-            Self::RangeUnknownEnd(end) => Edtf::RangeOpenEnd(end.validate()?),
+            Self::IntervalOpenFrom(start) => Edtf::IntervalOpenFrom(start.validate()?),
+            Self::IntervalOpenTo(end) => Edtf::IntervalOpenTo(end.validate()?),
+            Self::IntervalUnknownFrom(start) => Edtf::IntervalOpenFrom(start.validate()?),
+            Self::IntervalUnknownTo(end) => Edtf::IntervalOpenTo(end.validate()?),
         })
     }
 }
@@ -149,13 +149,13 @@ impl UnvalidatedDate {
 
 #[cfg(test)]
 mod test {
-    use super::api::Edtf;
+    use super::api::*;
     use super::packed::Certainty::*;
     use super::*;
 
     #[test]
     fn uncertain_dates_packed() {
-        use self::packed::PackedInt;
+        use super::packed::PackedInt;
         let d = Date::parse("2019-07-05%").unwrap();
         println!("{:?}", d.year.unpack());
         println!("{:?}", d.month);
@@ -283,11 +283,17 @@ mod test {
 
     fn scientific_l1() {
         // yes - 5+ digits
-        assert_eq!(Edtf::parse("Y157900"), Ok(Edtf::Scientific(157900)));
-        assert_eq!(Edtf::parse("Y1234567890"), Ok(Edtf::Scientific(1234567890)));
+        assert_eq!(
+            Edtf::parse("Y157900"),
+            Ok(Edtf::YYear(YYear::raw(157900))),
+        );
+        assert_eq!(
+            Edtf::parse("Y1234567890"),
+            Ok(Edtf::YYear(YYear::raw(1234567890))),
+        );
         assert_eq!(
             Edtf::parse("Y-1234567890"),
-            Ok(Edtf::Scientific(-1234567890))
+            Ok(Edtf::YYear(YYear::raw(-1234567890))),
         );
         // no -- <= 4 digits
         assert_eq!(Edtf::parse("Y1745"), Err(ParseError::Invalid));
@@ -312,5 +318,42 @@ mod test {
         assert_eq!(Edtf::parse("-999-07-05"), Err(ParseError::Invalid));
         // no - negative zero not allowed
         assert_eq!(Edtf::parse("-0000-07-05"), Err(ParseError::Invalid));
+    }
+
+    #[test]
+    #[ignore = "not sure if we want to support all these yet"]
+    fn y_year_features() {
+        // rejects 4-digit
+        assert_eq!(Edtf::parse("Y1234"), Err(Invalid));
+        // 5-digit base
+        assert_eq!(
+            Edtf::parse("Y17000"),
+            Ok(Edtf::YYear(YYear::new_opt(17000).unwrap()))
+        );
+
+        // full date
+        assert_eq!(Edtf::parse("Y17000-08-16"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));
+        //
+        // TODO: API to create uncertain/unspecified dates
+        //
+        // X unspecified digits
+        assert_eq!(
+            Edtf::parse("Y1700X")
+                .unwrap()
+                .as_date()
+                .unwrap()
+                .as_precision(),
+            DatePrecision::Year(17000, YearMask::OneDigit)
+        );
+        assert_eq!(
+            Edtf::parse("Y17000?")
+                .unwrap()
+                .as_date()
+                .map(|d| (d.certainty(), d.as_precision()))
+                .unwrap(),
+            (Uncertain, DatePrecision::Year(17000, YearMask::None))
+        );
+        // ? uncertainty
+        // assert_eq!(Edtf::parse("Y17000?"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));
     }
 }
