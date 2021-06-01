@@ -4,11 +4,12 @@ use crate::ParseError;
 use ParseError::*;
 
 pub mod api;
-mod packed;
+pub(crate) mod packed;
 mod parser;
 
+use crate::DateTime;
 use self::{
-    api::{Date, DateTime, Edtf, YYear},
+    api::{Date, Edtf, YYear},
     packed::{Certainty, DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
 };

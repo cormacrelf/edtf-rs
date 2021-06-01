@@ -1,4 +1,4 @@
-//! # Level 1
+//! # EDTF Level 1
 //!
 //! ## Letter-prefixed calendar year ✅
 //!
@@ -95,46 +95,18 @@
 use core::convert::TryInto;
 use core::str::FromStr;
 
+use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
+use crate::helpers;
+
 use super::{
-    packed::{PackedInt, PackedU8, PackedYear},
+    packed::{DMMask, PackedInt, PackedU8, PackedYear, YearFlags},
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
-};
-pub use crate::common::DateTime;
-use crate::{
-    common::{DateComplete, Time},
-    level1::packed::{DMMask, YearFlags},
-    ParseError,
 };
 
 pub use crate::level1::packed::Certainty;
 pub use crate::level1::packed::YearMask;
 
-use crate::helpers;
 use core::fmt;
-
-#[cfg(feature = "chrono")]
-#[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
-mod chrono_interop;
-
-pub use crate::common::TzOffset;
-
-#[allow(rustdoc::broken_intra_doc_links)]
-/// A helper trait for getting timezone information from some value. (Especially [chrono::DateTime]
-/// or [chrono::NaiveDateTime].)
-///
-/// Implementations for the `chrono` types are included with `feature = ["chrono"]`.
-///
-/// Not implemented on [DateTime] because this is only used as a bound on `impl<T> From<T> for DateTime`
-/// implementations.
-pub trait GetTimezone {
-    /// Return the number of seconds difference from UTC.
-    ///
-    /// - `None` represents NO timezone information on the EDTF timestamp.
-    /// - `Some(TzOffset::Utc)` represents a `Z` timezone, i.e. UTC/Zulu time.
-    /// - `Some(TzOffset::Hours(1))` represents `+01
-    /// - `Some(TzOffset::Minutes(-16_200))` represents `-04:30`
-    fn tz_offset(&self) -> Option<TzOffset>;
-}
 
 // TODO: Hash everywhere
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
@@ -429,7 +401,10 @@ impl Date {
     pub fn from_year_season(year: i32, season: Season) -> Self {
         UnvalidatedDate {
             year: (year, Default::default()),
-            month: (season as u32).try_into().ok().map(UnvalidatedDMEnum::Unmasked),
+            month: (season as u32)
+                .try_into()
+                .ok()
+                .map(UnvalidatedDMEnum::Unmasked),
             ..Default::default()
         }
         .validate()

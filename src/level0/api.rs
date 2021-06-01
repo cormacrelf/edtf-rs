@@ -1,4 +1,4 @@
-//! # Level 0
+//! # EDTF Level 0
 //!
 //! [EDTF Specification](https://www.loc.gov/standards/datetime/), February 4, 2019
 //!
@@ -32,10 +32,10 @@
 //!
 
 use crate::ParseError;
-use core::num::NonZeroU8;
 use core::convert::TryInto;
+use core::num::NonZeroU8;
 
-pub use crate::common::{DateTime, DateComplete};
+use crate::DateTime;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Edtf {
@@ -132,4 +132,3 @@ impl Date {
         Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
     }
 }
-

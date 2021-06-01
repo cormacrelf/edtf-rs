@@ -3,8 +3,8 @@ use core::num::NonZeroU8;
 
 use chrono::{Datelike, NaiveDate, Offset, TimeZone, Timelike};
 
-use super::*;
-use crate::common::{DateComplete, Time, TzOffset};
+use crate::{DateComplete, DateTime, Time, TzOffset, GetTimezone};
+use crate::level1::packed::{Certainty, PackedYear, PackedU8, PackedInt};
 
 /// This implementation maps to an EDTF timestamp without any timezone information attached.
 impl GetTimezone for chrono::NaiveDate {
@@ -58,14 +58,25 @@ where
     }
 }
 
-impl<DT> From<DT> for Edtf
+impl<DT> From<DT> for crate::level_0::Edtf
 where
     DT: Datelike,
     DT: Timelike,
     DT: GetTimezone,
 {
-    fn from(chrono_dt: DT) -> Edtf {
-        Edtf::DateTime(chrono_dt.into())
+    fn from(chrono_dt: DT) -> crate::level_0::Edtf {
+        crate::level_0::Edtf::DateTime(chrono_dt.into())
+    }
+}
+
+impl<DT> From<DT> for crate::level_1::Edtf
+where
+    DT: Datelike,
+    DT: Timelike,
+    DT: GetTimezone,
+{
+    fn from(chrono_dt: DT) -> crate::level_1::Edtf {
+        crate::level_1::Edtf::DateTime(chrono_dt.into())
     }
 }
 
@@ -81,7 +92,7 @@ impl DateTime {
 }
 
 impl DateComplete {
-    fn to_chrono(&self) -> NaiveDate {
+    pub fn to_chrono(&self) -> NaiveDate {
         NaiveDate::from_ymd(self.year, self.month.get() as u32, self.day.get() as u32)
     }
 }
@@ -419,7 +430,7 @@ impl TimeZone for TzOffset {
 fn timezone_impl() {
     let off = TzOffset::Hours(4);
     let ch = off.ymd(2019, 8, 7).and_hms(19, 7, 56);
-    let edtf = Edtf::from(ch).as_datetime();
+    let edtf = crate::level_1::Edtf::from(ch).as_datetime();
     assert_eq!(
         edtf,
         Some(DateTime {
@@ -432,4 +443,30 @@ fn timezone_impl() {
             }
         })
     );
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn to_chrono() {
+        use crate::level_1::Edtf;
+        use chrono::TimeZone;
+        let utc = chrono::Utc;
+        assert_eq!(
+            Edtf::parse("2004-02-29T01:47:00+00:00")
+                .unwrap()
+                .as_datetime()
+                .unwrap()
+                .to_chrono(&utc),
+            utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
+        );
+        assert_eq!(
+            Edtf::parse("2004-02-29T01:47:00")
+                .unwrap()
+                .as_datetime()
+                .unwrap()
+                .to_chrono(&utc),
+            utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
+        );
+    }
 }
