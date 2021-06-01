@@ -17,31 +17,30 @@
 //!
 //! ### Notes:
 //!
-//! It is unclear how many other features should be supported in `Y`-years.
+//! It is unclear how many other features should be supported in `Y`-years. The spec is pretty
+//! quiet on this. The main reason in favour of adding a bunch of features is that `Y`-years are
+//! called "date", and the "date" concept is reused all over the place. Here's some pro/con
+//! analysis of adding features:
 //!
 //! - Can they be followed by a month and day/season?
-//!   - Probably not, because the spec says '*to signify that the date is a year*'.
+//!   - Probably not, because the spec says '*to signify that the date is a year*'. Also who cares
+//!   whether 10,000BC was a Thursday?
 //! - Can they take `X/XX` unspecified digits?
-//!   - In Level 2 there is already the significant digits functionality, which kinda covers this via `S1`/`S2`
+//!   - In Level 2 there is already the significant digits functionality, which kinda covers this
+//!   via `S1`/`S2`. So probably not.
 //! - Can they have a `?~%` uncertainty attached?
-//!   - Again, I don't see why not. If you're talking about 10,000BC, it is rare that
-//!   you could actually be certain. But that only makes it more logical that you should be able to
-//!   use the uncertainty flags.
+//!   - If you're talking about 10,000BC, it is rare that you could actually be certain. But that
+//!   only makes it logical that the additional uncertainty flags are not actually necessary.
 //! - Can they be put in ranges?
-//!   - Absolutely no reason why not. It's hard to believe nobody has implemented this.
+//!   - Absolutely no reason why not. In fact this is probably *the* most useful feature for them.
+//!   Plus, years in L2 can have significant digits, which is shorthand for making a special kind
+//!   of range with an estimate. **Leaning yes.**
+//! - or L2 sets?
+//!   - No great reasons for/against. But those sets are designed for enumerating specific
+//!   years/months/days, which is not useful for Y-years because they are typically so inaccurate.
 //!
-//! For compatibility reasons, edtf-rs won't support these unless there is a more precise revision
-//! of the spec that clarifies `Y`-years' status in the grammar. This is, however, the only reason
-//! why. It appears that the test suites for the other implementations draw almost entirely from
-//! the spec document itself; I haven't seen a test for L1 `Y`-years other than the two examples
-//! given in the spec.
 //!
-//! Tests: [php](https://github.com/ProfessionalWiki/EDTF/blob/c0f54c0c8dff3c00f9b32ea3e773315d6a5f2c9e/tests/Functional/Level1/PrefixedYearTest.php),
-//! [js]()
-//! [rb](https://github.com/inukshuk/edtf-ruby/blob/7ee86d81ddb7d6503d5b282a409eb43e51f27186/spec/edtf/parser_spec.rb#L74-L80),
-//! [py](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L101-L103) but [considers `y17e7-12-26` to be "not implemented"](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L195) rather than not part of the spec.
-//!
-//! This table lists compatibility as of 2021-05-26.
+//! This table lists compatibility with other implementations as of 2021-05-26.
 //!
 
 //! | Implementation                   | Rust    | [validator][v] | [PHP][php] | [Dart][dart] | [edtf.js][js] | [edtf-ruby][rb] | [python-edtf][py] |
@@ -65,6 +64,11 @@
 //! [js]: https://npmjs.com/package/edtf/
 //! [rb]: https://rubygems.org/gems/edtf/
 //! [py]: https://pypi.org/project/edtf/
+//!
+//! Test suites: [php](https://github.com/ProfessionalWiki/EDTF/blob/c0f54c0c8dff3c00f9b32ea3e773315d6a5f2c9e/tests/Functional/Level1/PrefixedYearTest.php),
+//! [js]()
+//! [rb](https://github.com/inukshuk/edtf-ruby/blob/7ee86d81ddb7d6503d5b282a409eb43e51f27186/spec/edtf/parser_spec.rb#L74-L80),
+//! [py](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L101-L103) but [considers `y17e7-12-26` to be "not implemented"](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L195) rather than not part of the spec.
 //!
 //! *⚠️: The 2012 draft uses the old `y12345` syntax.*
 //!
@@ -101,8 +105,8 @@
 use core::convert::TryInto;
 use core::str::FromStr;
 
-use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
 use crate::helpers;
+use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
 
 use super::{
     packed::{DMMask, PackedInt, PackedU8, PackedYear, YearFlags},
