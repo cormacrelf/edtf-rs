@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="EDTF Level 1"><meta name="keywords" content="rust, rustlang, rust-lang, level_1"><title>edtf::level_1 - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../edtf/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a><p class="location">Module level_1</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><p class="location"><a href="../index.html">edtf</a></p><div id="sidebar-vars" data-name="level_1" data-ty="mod" data-relpath="../"></div><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../index.html">edtf</a>::<wbr><a class="mod" href="">level_1</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../src/edtf/level1/api.rs.html#7-693" title="goto source code">[src]</a></span></h1><div class="docblock"><h1 id="edtf-level-1" class="section-header"><a href="#edtf-level-1">EDTF Level 1</a></h1><h2 id="letter-prefixed-calendar-year-" class="section-header"><a href="#letter-prefixed-calendar-year-">Letter-prefixed calendar year ✅</a></h2>
+<blockquote>
+<p>‘Y’ may be used at the beginning of the date string to signify that the date is a year, when
+(and only when) the year exceeds four digits, i.e. for years later than 9999 or earlier than
+-9999.</p>
+</blockquote>
+<ul>
+<li>‘Y170000002’ is the year 170000002</li>
+<li>‘Y-170000002’ is the year -170000002</li>
+</ul>
+<h3 id="notes" class="section-header"><a href="#notes">Notes:</a></h3>
+<p>It is unclear how many other features should be supported in <code>Y</code>-years.</p>
+<ul>
+<li>Can they be followed by a month and day/season?
+<ul>
+<li>Probably not, because the spec says ‘<em>to signify that the date is a year</em>’.</li>
+</ul>
+</li>
+<li>Can they take <code>X/XX</code> unspecified digits?
+<ul>
+<li>In Level 2 there is already the significant digits functionality, which kinda covers this via <code>S1</code>/<code>S2</code></li>
+</ul>
+</li>
+<li>Can they have a <code>?~%</code> uncertainty attached?
+<ul>
+<li>Again, I don’t see why not. If you’re talking about 10,000BC, it is rare that
+you could actually be certain. But that only makes it more logical that you should be able to
+use the uncertainty flags.</li>
+</ul>
+</li>
+<li>Can they be put in ranges?
+<ul>
+<li>Absolutely no reason why not. It’s hard to believe nobody has implemented this.</li>
+</ul>
+</li>
+</ul>
+<p>For compatibility reasons, edtf-rs won’t support these unless there is a more precise revision
+of the spec that clarifies <code>Y</code>-years’ status in the grammar. This is, however, the only reason
+why. It appears that the test suites for the other implementations draw almost entirely from
+the spec document itself; I haven’t seen a test for L1 <code>Y</code>-years other than the two examples
+given in the spec.</p>
+<p>Tests: <a href="https://github.com/ProfessionalWiki/EDTF/blob/c0f54c0c8dff3c00f9b32ea3e773315d6a5f2c9e/tests/Functional/Level1/PrefixedYearTest.php">php</a>,
+<a href="">js</a>
+<a href="https://github.com/inukshuk/edtf-ruby/blob/7ee86d81ddb7d6503d5b282a409eb43e51f27186/spec/edtf/parser_spec.rb#L74-L80">rb</a>,
+<a href="https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L101-L103">py</a> but <a href="https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L195">considers <code>y17e7-12-26</code> to be “not implemented”</a> rather than not part of the spec.</p>
+<p>This table lists compatibility as of 2021-05-26.</p>
+<table><thead><tr><th>Implementation</th><th>Rust</th><th><a href="https://digital2.library.unt.edu/edtf/">validator</a></th><th><a href="https://github.com/ProfessionalWiki/EDTF">PHP</a></th><th><a href="https://github.com/maalexy/edtf">Dart</a></th><th><a href="https://npmjs.com/package/edtf/">edtf.js</a></th><th><a href="https://rubygems.org/gems/edtf/">edtf-ruby</a></th><th><a href="https://pypi.org/project/edtf/">python-edtf</a></th></tr></thead><tbody>
+<tr><td>Last Updated</td><td></td><td>2020-11</td><td>2021-05</td><td>2019</td><td>2020-11</td><td>2020-11</td><td>2018-06</td></tr>
+<tr><td>Draft version supported</td><td>2019-02</td><td>2019-02</td><td>2019-02</td><td>2019-02</td><td>2019-02</td><td>2012 ⚠️</td><td>2012 ⚠️</td></tr>
+<tr><td>More info</td><td></td><td><a href="https://library.unt.edu/digital-projects-unit/metadata/fields/date/">info</a></td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>Rejects 4-digit <code>Y1234</code></td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>✅</td><td>✅</td><td>✅</td></tr>
+<tr><td><code>Y17000</code>, <code>Y-17000</code> (base)</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+<tr><td><code>Y17000-08-18</code></td><td>❌</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td><code>Y1700X</code></td><td>🧐</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td><code>Y17000?</code></td><td>🧐</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td><code>Y-17000/2003</code>, <code>Y17000/..</code> etc.</td><td>🧐</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td><code>[Y17000..]</code>, etc.</td><td>🧐</td><td>❌</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+</tbody></table>
+<p><em>⚠️: The 2012 draft uses the old <code>y12345</code> syntax.</em></p>
+<h2 id="seasons-" class="section-header"><a href="#seasons-">Seasons ✅</a></h2>
+<p>Using Spring=21, Summer=22, Autumn=23, Winter=24.</p>
+<h2 id="qualification-of-a-date-complete-" class="section-header"><a href="#qualification-of-a-date-complete-">Qualification of a date (complete) ✅</a></h2>
+<blockquote>
+<p>The characters ‘?’, ‘~’ and ‘%’ are used to mean “uncertain”, “approximate”, and “uncertain”
+as well as “approximate”, respectively. These characters may occur only at the end of the date
+string and apply to the entire date.</p>
+</blockquote>
+<h2 id="unspecified-digits-from-the-right-" class="section-header"><a href="#unspecified-digits-from-the-right-">Unspecified digit(s) from the right ✅</a></h2>
+<blockquote>
+<p>The character ‘X’ may be used in place of one or more rightmost digits to indicate that the
+value of that digit is unspecified, for the following cases:</p>
+</blockquote>
+<ul>
+<li><code>201X</code>, <code>20XX</code>: Year only, one or two digits: <code>201X</code>, <code>20XX</code></li>
+<li><code>2004-XX</code>: Year specified, <em>month unspecified</em>, month precision: <code>2004-XX</code> (different from <code>2004</code>, as
+it has month precision but no actual month, whereas <code>2004</code> has year precision only)</li>
+<li><code>2004-07-XX</code>: Year and month specified, <em>day unspecified</em> in a year-month-day expression (day precision)</li>
+<li><code>2004-XX-XX</code>: Year specified, <em>day and month unspecified</em> in a year-month-day expression  (day precision)</li>
+</ul>
+<h2 id="extended-interval-l1-" class="section-header"><a href="#extended-interval-l1-">Extended Interval (L1) ✅</a></h2>
+<ul>
+<li>unknown start or end: <code>/[date]</code>, <code>[date]/</code></li>
+<li>open interval, (for example ‘until date’ or ‘from date onwards’): <code>../[date]</code>, <code>[date]/..</code></li>
+</ul>
+<h2 id="negative-calendar-year-" class="section-header"><a href="#negative-calendar-year-">Negative calendar year ✅</a></h2>
+<p><code>-1740</code></p>
+</div><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<table><tr class="module-item"><td><a class="struct" href="struct.Date.html" title="edtf::level_1::Date struct">Date</a></td><td class="docblock-short"><p>An EDTF date. Represents a standalone date or one end of a interval.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.YYear.html" title="edtf::level_1::YYear struct">YYear</a></td><td class="docblock-short"><p>Represents a 5+ digit, signed year like <code>Y12345</code>, <code>Y-17000</code>.</p>
+</td></tr></table><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
+<table><tr class="module-item"><td><a class="enum" href="enum.Certainty.html" title="edtf::level_1::Certainty enum">Certainty</a></td><td class="docblock-short"><p>Represents whether a date part is uncertain and in what way. In EDTF, this is encoded as the
+<code>?</code>, <code>~</code> and <code>%</code> modifiers.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.DatePart.html" title="edtf::level_1::DatePart enum">DatePart</a></td><td class="docblock-short"><p>A month or a day in <a href="../../edtf/level_1/enum.DatePrecision.html" title="DatePrecision">DatePrecision</a></p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.DatePrecision.html" title="edtf::level_1::DatePrecision enum">DatePrecision</a></td><td class="docblock-short"><p>An enum used to conveniently match on an EDTF <a href="../../edtf/level_1/struct.Date.html" title="Date">Date</a>.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.Edtf.html" title="edtf::level_1::Edtf enum">Edtf</a></td><td class="docblock-short"><p>Fully represents EDTF Level 1. The representation is lossless.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.Season.html" title="edtf::level_1::Season enum">Season</a></td><td class="docblock-short"><p>A season in <a href="../../edtf/level_1/enum.DatePrecision.html" title="DatePrecision">DatePrecision</a> and constructor methods on <a href="../../edtf/level_1/struct.Date.html" title="Date">Date</a> e.g. <a href="../../edtf/level_1/struct.Date.html#method.from_year_season" title="Date::from_year_season">Date::from_year_season</a></p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.YearMask.html" title="edtf::level_1::YearMask enum">YearMask</a></td><td class="docblock-short"><p>Specifies the number of Xs in <code>2019</code>/<code>201X</code>/<code>20XX</code>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="edtf" data-search-js="../../search-index.js"></div>
+    <script src="../../main.js"></script></body></html>

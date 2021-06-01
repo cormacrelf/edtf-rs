@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["edtf"] = [{"text":"impl <a class=\"trait\" href=\"https://docs.rs/chrono/latest/chrono/offset/trait.Offset.html\" title=\"trait chrono::offset::Offset\">Offset</a> for <a class=\"enum\" href=\"edtf/enum.TzOffset.html\" title=\"enum edtf::TzOffset\">TzOffset</a>","synthetic":false,"types":["edtf::TzOffset"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

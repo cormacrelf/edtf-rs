@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="This crate implements the Extended Date/Time Format as of the 2019-02 specification. It contains separate implementations for each level 0, 1, and 2. Notes on the choices made in each level are found in in the module level documentation."><meta name="keywords" content="rust, rustlang, rust-lang, edtf"><title>edtf - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings"></script><script src="../storage.js"></script><script src="../crates.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../edtf/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><p class="location">Crate edtf</p><div class="block version"><p>Version 0.1.0-pre.1</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all edtf's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></div><p class="location"></p><div id="sidebar-vars" data-name="edtf" data-ty="mod" data-relpath="../"></div></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="">edtf</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/edtf/lib.rs.html#7-285" title="goto source code">[src]</a></span></h1><div class="docblock"><p>This crate implements the <a href="https://www.loc.gov/standards/datetime/">Extended Date/Time Format</a>
+as of the 2019-02 specification. It contains separate implementations for each level 0, 1, and
+2. Notes on the choices made in each level are found in in the module level documentation.</p>
+<h3 id="features" class="section-header"><a href="#features">Features:</a></h3>
+<ul>
+<li>Lossless. Each parsed Edtf can be formatted again to output exactly the same string.</li>
+<li>Strict. Rejects everything the specification rejects as a parse error. All the types make it
+impossible to construct an invalid Edtf object.</li>
+<li>Works with <a href="https://lib.rs/chrono"><code>chrono</code></a> via the optional <code>features = [&quot;chrono&quot;]</code>.</li>
+</ul>
+<h3 id="general-notes-on-edtf" class="section-header"><a href="#general-notes-on-edtf">General notes on EDTF</a></h3>
+<p>It is probably not stated often enough that EDTF and ISO 8601 support only one calendar, the
+<a href="https://en.wikipedia.org/wiki/Proleptic_Gregorian_calendar">proleptic Gregorian calendar</a>.</p>
+<blockquote>
+<p><em>The proleptic Gregorian calendar is produced by extending the Gregorian calendar backward to
+the dates preceding its official introduction in 1582.</em></p>
+</blockquote>
+<p>Care should be taken whenever writing down dates before its <strong>adoption</strong> by the country in
+which a historical record was created. <strong>That means 1800s for many countries!</strong> You may be
+unwittingly transcribing a Julian date, or some other calendar, which will be reinterpreted by
+EDTF as proleptic Gregorian and be a few days-to-weeks off. See the <a href="https://en.wikipedia.org/wiki/List_of_adoption_dates_of_the_Gregorian_calendar_per_country">Wikipedia list of adoption
+dates</a>.
+<em>[this section needs a link to a good Julian converter]</em>.</p>
+<h3 id="level-0-example" class="section-header"><a href="#level-0-example">Level 0 example</a></h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">edtf</span>::<span class="ident">level_0</span>::<span class="ident">Edtf</span>;
+<span class="kw">let</span> <span class="ident">edtf</span> <span class="op">=</span> <span class="ident">Edtf</span>::<span class="ident">parse</span>(<span class="string">&quot;2019-01-07/2020-01&quot;</span>).<span class="ident">unwrap</span>();
+<span class="kw">match</span> <span class="ident">edtf</span> {
+    <span class="ident">Edtf</span>::<span class="ident">Date</span>(<span class="ident">d</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;date, {}&quot;</span>, <span class="ident">d</span>),
+    <span class="ident">Edtf</span>::<span class="ident">Interval</span>(<span class="ident">from</span>, <span class="ident">to</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;interval, {} to {}&quot;</span>, <span class="ident">from</span>, <span class="ident">to</span>);
+        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;(year only: {} to {})&quot;</span>, <span class="ident">from</span>.<span class="ident">year</span>(), <span class="ident">to</span>.<span class="ident">year</span>());
+    }
+    <span class="ident">Edtf</span>::<span class="ident">DateTime</span>(<span class="ident">dt</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;datetime, {}&quot;</span>, <span class="ident">dt</span>),
+}
+<span class="comment">// prints:</span>
+<span class="comment">// interval, 2019-01-07 to 2020-01</span>
+<span class="comment">// (year only: 2019 to 2020)</span></pre></div>
+</div><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
+<table><tr class="module-item"><td><a class="mod" href="level_0/index.html" title="edtf::level_0 mod">level_0</a></td><td class="docblock-short"><p>EDTF Level 0</p>
+</td></tr><tr class="module-item"><td><a class="mod" href="level_1/index.html" title="edtf::level_1 mod">level_1</a></td><td class="docblock-short"><p>EDTF Level 1</p>
+</td></tr></table><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<table><tr class="module-item"><td><a class="struct" href="struct.DateComplete.html" title="edtf::DateComplete struct">DateComplete</a></td><td class="docblock-short"><p>A structure to hold the date portion of a <a href="../edtf/struct.DateTime.html" title="DateTime">DateTime</a>. It contains a valid date in the proleptic
+Gregorian calendar.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DateTime.html" title="edtf::DateTime struct">DateTime</a></td><td class="docblock-short"><p>A DateTime object.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.Time.html" title="edtf::Time struct">Time</a></td><td class="docblock-short"><p>The time portion of a <a href="../edtf/struct.DateTime.html" title="DateTime">DateTime</a>.</p>
+</td></tr></table><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
+<table><tr class="module-item"><td><a class="enum" href="enum.ParseError.html" title="edtf::ParseError enum">ParseError</a></td><td class="docblock-short"><p>The error type for all the <code>parse</code> methods in this crate.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.TzOffset.html" title="edtf::TzOffset enum">TzOffset</a></td><td class="docblock-short"><p>If <code>features = [&quot;chrono&quot;]</code> is enabled, then this can act as a <a href="https://docs.rs/chrono/latest/chrono/offset/trait.TimeZone.html" title="chrono::TimeZone">chrono::TimeZone</a>. This can be
+used to preserve the level of TZ brevity i.e. <code>TzOffset::Hours(_)</code> ends up as <code>+04</code> instead of
+<code>+04:00</code>.</p>
+</td></tr></table><h2 id="traits" class="section-header"><a href="#traits">Traits</a></h2>
+<table><tr class="module-item"><td><a class="trait" href="trait.GetTimezone.html" title="edtf::GetTimezone trait">GetTimezone</a></td><td class="docblock-short"><p>A helper trait for getting timezone information from some value. (Especially <a href="https://docs.rs/chrono/latest/chrono/datetime/struct.DateTime.html" title="chrono::DateTime">chrono::DateTime</a>
+or <a href="https://docs.rs/chrono/latest/chrono/naive/datetime/struct.NaiveDateTime.html" title="chrono::NaiveDateTime">chrono::NaiveDateTime</a>.)</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="edtf" data-search-js="../search-index.js"></div>
+    <script src="../main.js"></script></body></html>

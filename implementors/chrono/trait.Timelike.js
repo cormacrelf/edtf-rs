@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["edtf"] = [{"text":"impl <a class=\"trait\" href=\"https://docs.rs/chrono/latest/chrono/trait.Timelike.html\" title=\"trait chrono::Timelike\">Timelike</a> for <a class=\"struct\" href=\"edtf/struct.Time.html\" title=\"struct edtf::Time\">Time</a>","synthetic":false,"types":["edtf::Time"]},{"text":"impl <a class=\"trait\" href=\"https://docs.rs/chrono/latest/chrono/trait.Timelike.html\" title=\"trait chrono::Timelike\">Timelike</a> for <a class=\"struct\" href=\"edtf/struct.DateTime.html\" title=\"struct edtf::DateTime\">DateTime</a>","synthetic":false,"types":["edtf::DateTime"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
