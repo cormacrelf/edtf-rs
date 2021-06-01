@@ -36,13 +36,13 @@ impl Date {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ParsedEdtf {
     Date(Date),
-    Range(Date, Date),
+    Interval(Date, Date),
     DateTime(DateComplete, UnvalidatedTime),
 }
 
 fn level0(remain: &str) -> StrResult<ParsedEdtf> {
     let dt = date_time.map(|(d, t)| ParsedEdtf::DateTime(d, t));
-    let range = date_range.map(|(a, b)| ParsedEdtf::Range(a, b));
+    let range = date_range.map(|(a, b)| ParsedEdtf::Interval(a, b));
     let single = date.map(ParsedEdtf::Date);
 
     dt.or(range).or(single).parse(remain)
@@ -210,7 +210,7 @@ mod test {
             super::level0("2004-02-29/2009-07-16"),
             Ok((
                 "",
-                ParsedEdtf::Range(Date::from_ymd(2004, 02, 29), Date::from_ymd(2009, 07, 16),)
+                ParsedEdtf::Interval(Date::from_ymd(2004, 02, 29), Date::from_ymd(2009, 07, 16),)
             ))
         );
 
@@ -218,7 +218,7 @@ mod test {
             super::level0("2004-02-29/2009-07"),
             Ok((
                 "",
-                ParsedEdtf::Range(Date::from_ymd(2004, 02, 29), Date::from_ymd(2009, 07, 0),)
+                ParsedEdtf::Interval(Date::from_ymd(2004, 02, 29), Date::from_ymd(2009, 07, 0),)
             ))
         );
 
@@ -226,7 +226,7 @@ mod test {
             super::level0("2004/2009-07"),
             Ok((
                 "",
-                ParsedEdtf::Range(Date::from_ymd(2004, 00, 00), Date::from_ymd(2009, 07, 00),)
+                ParsedEdtf::Interval(Date::from_ymd(2004, 00, 00), Date::from_ymd(2009, 07, 00),)
             ))
         );
     }
