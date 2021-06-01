@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 pub(crate) mod common;
 mod helpers;
 pub mod level0;

@@ -105,8 +105,10 @@ use core::fmt;
 use crate::helpers;
 
 #[cfg(feature = "chrono")]
+#[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 mod chrono_interop;
 
+#[allow(rustdoc::broken_intra_doc_links)]
 /// A helper trait for getting timezone information from some value. (Especially [chrono::DateTime]
 /// or [chrono::NaiveDateTime].)
 ///

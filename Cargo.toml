@@ -6,12 +6,22 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = []
 
-[dependencies]
-chrono = { version = "0.4", default-features = false, optional = true }
-nom = { version = "6", default-features = false }
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = [ ]
+
+[dependencies.nom]
+version = "6"
+default-features = false
+
+[dependencies.chrono]
+version = "0.4"
+default-features = false
+optional = true
 
 [dev-dependencies]
 no-panic = "0.1.15"

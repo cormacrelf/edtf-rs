@@ -57,6 +57,7 @@ fn chrono_tz_datetime<Tz: chrono::TimeZone>(
 }
 
 #[cfg(feature = "chrono")]
+#[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 impl DateTime {
     /// ```
     /// use edtf::level_1::Edtf;
@@ -64,12 +65,12 @@ impl DateTime {
     ///
     /// let utc = chrono::Utc;
     /// assert_eq!(
-    ///     Edtf::parse("2004-02-29T01:47:00+00:00")
+    ///     Edtf::parse("2004-02-29T01:47:00+05:00")
     ///         .unwrap()
     ///         .as_datetime()
     ///         .unwrap()
     ///         .to_chrono(&utc),
-    ///     utc.ymd(2004, 02, 29).and_hms(01, 47, 00)
+    ///     utc.ymd(2004, 02, 28).and_hms(20, 47, 00)
     /// );
     /// ```
     pub fn to_chrono<Tz>(&self, tz: &Tz) -> chrono::DateTime<Tz>
