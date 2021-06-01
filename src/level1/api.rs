@@ -144,11 +144,11 @@ pub trait GetTimezone {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DatePart {
     Masked,
-    Normal(u8),
+    Normal(u32),
 }
 
 impl DatePart {
-    pub fn value(&self) -> Option<u8> {
+    pub fn value(&self) -> Option<u32> {
         match *self {
             Self::Normal(v) => Some(v),
             Self::Masked => None,
@@ -314,7 +314,7 @@ impl Date {
         Self::from_ymd(year, 0, 0)
     }
 
-    pub fn from_ym(year: i32, month: u8) -> Self {
+    pub fn from_ym(year: i32, month: u32) -> Self {
         Self::from_ymd(year, month, 0)
     }
 
@@ -331,7 +331,7 @@ impl Date {
     ///
     /// assert!(Date::parse("2019-00-01").is_err());
     /// ```
-    pub fn from_ymd(year: i32, month: u8, day: u8) -> Self {
+    pub fn from_ymd(year: i32, month: u32, day: u32) -> Self {
         UnvalidatedDate::from_ymd(year, month, day)
             .validate()
             .unwrap_or_else(|_| panic!("date not valid: {:04}-{:02}-{:02}", year, month, day))
@@ -347,7 +347,7 @@ impl Date {
     /// use edtf::level_1::Date;
     /// assert_eq!(Date::parse("2019-07-09"), Ok(Date::from_ymd(2019, 07, 09)));
     /// ```
-    pub fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
+    pub fn from_ymd_opt(year: i32, month: u32, day: u32) -> Option<Self> {
         UnvalidatedDate::from_ymd(year, month, day).validate().ok()
     }
 
@@ -412,10 +412,10 @@ impl Date {
     /// Month accepts a (1-12) month or (21-24) season.
     ///
     /// Panics if year is out of range.
-    pub fn from_ym_masked_day(year: i32, month: u8) -> Self {
+    pub fn from_ym_masked_day(year: i32, month: u32) -> Self {
         UnvalidatedDate {
             year: (year, YearFlags::default()),
-            month: Some(UnvalidatedDMEnum::Unmasked(month)),
+            month: month.try_into().ok().map(UnvalidatedDMEnum::Unmasked),
             day: Some(UnvalidatedDMEnum::Masked),
             ..Default::default()
         }
@@ -429,7 +429,7 @@ impl Date {
     pub fn from_year_season(year: i32, season: Season) -> Self {
         UnvalidatedDate {
             year: (year, Default::default()),
-            month: Some(UnvalidatedDMEnum::Unmasked(season as u32 as u8)),
+            month: (season as u32).try_into().ok().map(UnvalidatedDMEnum::Unmasked),
             ..Default::default()
         }
         .validate()
@@ -463,7 +463,7 @@ impl Date {
             },
         ) = self.year.unpack();
         match (self.month, self.day) {
-            (Some(month), None) => match month.value() {
+            (Some(month), None) => match month.value_u32() {
                 Some(m) => {
                     if m >= 21 && m <= 24 {
                         DatePrecision::Season(y, Season::from_u32(m as u32))
@@ -475,7 +475,7 @@ impl Date {
                 }
                 None => DatePrecision::Month(y, DatePart::Masked),
             },
-            (Some(month), Some(day)) => match (month.value(), day.value()) {
+            (Some(month), Some(day)) => match (month.value_u32(), day.value_u32()) {
                 (None, Some(_)) => {
                     unreachable!("date should never hold a masked month with unmasked day")
                 }

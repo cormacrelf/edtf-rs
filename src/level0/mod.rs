@@ -89,7 +89,7 @@ impl Date {
         Date { year, month, day }
     }
     fn validate(self) -> Result<Self, ParseError> {
-        if self.year > 9999 {
+        if self.year > 9999 || self.year < 0 {
             return Err(ParseError::OutOfRange);
         }
         if let Some(m) = self.month.map(NonZeroU8::get) {

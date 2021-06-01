@@ -1,3 +1,4 @@
+use core::convert::TryInto;
 use crate::common::is_valid_complete_date;
 use crate::ParseError;
 use ParseError::*;
@@ -50,6 +51,9 @@ impl PackedU8 {
         } else {
             Some(val)
         }
+    }
+    fn value_u32(&self) -> Option<u32> {
+        self.value().map(|x| x as u32)
     }
 }
 
@@ -129,18 +133,18 @@ impl UnvalidatedDate {
     fn validate(self) -> Result<Date, ParseError> {
         validate(self)
     }
-    pub(crate) fn from_ymd(year: i32, month: u8, day: u8) -> Self {
+    pub(crate) fn from_ymd(year: i32, month: u32, day: u32) -> Self {
         UnvalidatedDate {
             year: (year, Default::default()),
             month: if month == 0 {
                 None
             } else {
-                Some(UnvalidatedDMEnum::Unmasked(month))
+                month.try_into().ok().map(UnvalidatedDMEnum::Unmasked)
             },
             day: if day == 0 {
                 None
             } else {
-                Some(UnvalidatedDMEnum::Unmasked(day))
+                day.try_into().ok().map(UnvalidatedDMEnum::Unmasked)
             },
             certainty: Default::default(),
         }

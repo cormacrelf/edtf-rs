@@ -31,9 +31,11 @@
 //! | `[date]/[date]` | `1964/2008`<br> `2004-06/2006-08` <br> `2004-02-01/2005-02-08` <br> `2004-02-01/2005-02` <br> etc |
 //!
 
-pub use crate::common::DateTime;
-use crate::{ParseError, common::DateComplete};
+use crate::ParseError;
 use core::num::NonZeroU8;
+use core::convert::TryInto;
+
+pub use crate::common::{DateTime, DateComplete};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Edtf {
@@ -47,10 +49,10 @@ impl Edtf {
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         Self::parse_inner(input).and_then(Self::validate)
     }
-    pub fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
+    pub fn from_ymd_opt(year: i32, month: u32, day: u32) -> Option<Self> {
         Date::from_ymd_opt(year, month, day).map(Self::Date)
     }
-    pub fn from_ymd(year: i32, month: u8, day: u8) -> Self {
+    pub fn from_ymd(year: i32, month: u32, day: u32) -> Self {
         Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
     }
     pub fn as_date(&self) -> Option<Date> {
@@ -81,14 +83,17 @@ pub struct Date {
 }
 
 impl Date {
+    /// Returns a year in the range 0000..=9999.
     pub fn year(self) -> i32 {
         self.year
     }
-    pub fn month(self) -> u8 {
-        self.month.map_or(0, |x| x.get())
+    /// 0 if absent. Guaranteed to be absent if [Self::day] is also absent.
+    pub fn month(self) -> u32 {
+        self.month.map_or(0, |x| x.get()) as u32
     }
-    pub fn day(self) -> u8 {
-        self.day.map_or(0, |x| x.get())
+    /// 0 if absent.
+    pub fn day(self) -> u32 {
+        self.day.map_or(0, |x| x.get()) as u32
     }
     /// Parses a Date from a string. **Note!** This is not part of the EDTF spec. It is
     /// merely a convenience, helpful for constructing proper [Edtf] values programmatically. It
@@ -105,29 +110,26 @@ impl Date {
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         Self::parse_inner(input).and_then(Self::validate)
     }
-    pub fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
+
+    ///
+    /// Returns None if year < 0 or year > 9999 or the date is invalid (e.g April 31, June 400,
+    /// February 29 in a non-leap-year, month=0 but day!=0, month > 12, etc.)
+    ///
+    /// The year would be unsigned, but chrono and this library use u32 everywhere. This allows you
+    /// to simply pass i32 years around, and get `None` if it's unsupported in `level_0`.
+    pub fn from_ymd_opt(year: i32, month: u32, day: u32) -> Option<Self> {
         Date {
             year,
-            month: NonZeroU8::new(month),
-            day: NonZeroU8::new(day),
+            month: month.try_into().ok().and_then(NonZeroU8::new),
+            day: day.try_into().ok().and_then(NonZeroU8::new),
         }
         .validate()
         .ok()
     }
 
-    pub fn from_ymd(year: i32, month: u8, day: u8) -> Self {
+    /// Like [Date::from_ymd_opt], but panics if the date is unsupported in `level_0`.
+    pub fn from_ymd(year: i32, month: u32, day: u32) -> Self {
         Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
-    }
-}
-
-impl DateComplete {
-    pub fn from_ymd(year: i32, month: u8, day: u8) -> Self {
-        Self::from_ymd_opt(year, month, day).expect("invalid complete date")
-    }
-    pub fn from_ymd_opt(year: i32, month: u8, day: u8) -> Option<Self> {
-        let month = NonZeroU8::new(month)?;
-        let day = NonZeroU8::new(day)?;
-        Self { year, month, day }.validate().ok()
     }
 }
 
