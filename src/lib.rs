@@ -7,8 +7,6 @@
 #![allow(dead_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! # EDTF
-//!
 //! This crate implements the [Extended Date/Time Format](https://www.loc.gov/standards/datetime/)
 //! as of the 2019-02 specification. It contains separate implementations for each level 0, 1, and
 //! 2. Notes on the choices made in each level are found in in the module level documentation.
