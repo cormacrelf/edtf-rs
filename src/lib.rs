@@ -28,6 +28,25 @@
 //! EDTF as proleptic Gregorian and be a few days-to-weeks off. See the [Wikipedia list of adoption
 //! dates](https://en.wikipedia.org/wiki/List_of_adoption_dates_of_the_Gregorian_calendar_per_country).
 //! *[this section needs a link to a good Julian converter]*.
+//!
+//!
+//! ### Level 0 example
+//!
+//! ```
+//! use edtf::level_0::Edtf;
+//! let edtf = Edtf::parse("2019-01-07/2020-01").unwrap();
+//! match edtf {
+//!     Edtf::Date(d) => println!("date, {}", d),
+//!     Edtf::Interval(from, to) => {
+//!         println!("interval, {} to {}", from, to);
+//!         println!("(year only: {} to {})", from.year(), to.year());
+//!     }
+//!     Edtf::DateTime(dt) => println!("datetime, {}", dt),
+//! }
+//! // prints:
+//! // interval, 2019-01-07 to 2020-01
+//! // (year only: 2019 to 2020)
+//! ```
 
 pub(crate) mod common;
 pub(crate) mod helpers;

@@ -32,8 +32,10 @@
 //!
 
 use crate::ParseError;
+use crate::helpers;
 use core::convert::TryInto;
 use core::num::NonZeroU8;
+use core::fmt;
 
 use crate::DateTime;
 
@@ -75,11 +77,17 @@ impl Edtf {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Date {
     pub(crate) year: i32,
     pub(crate) month: Option<NonZeroU8>,
     pub(crate) day: Option<NonZeroU8>,
+}
+
+impl fmt::Debug for Date {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
 }
 
 impl Date {
@@ -132,3 +140,44 @@ impl Date {
         Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
     }
 }
+
+impl core::str::FromStr for Edtf {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Edtf::parse(s)
+    }
+}
+
+
+impl fmt::Display for Edtf {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Date(d) => write!(f, "{}", d),
+            Self::Interval(d, d2) => write!(f, "{}/{}", d, d2),
+            Self::DateTime(dt) => write!(f, "{}", dt),
+        }
+    }
+}
+
+impl fmt::Display for Date {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Date {
+            year,
+            month,
+            day,
+        } = *self;
+        let sign = helpers::sign_str_if_neg(year);
+        let year = year.abs();
+        write!(f, "{}{:04}", sign, year)?;
+        if let Some(month) = month {
+            write!(f, "-{:02}", month)?;
+            if let Some(day) = day {
+                write!(f, "-{:02}", day)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+
