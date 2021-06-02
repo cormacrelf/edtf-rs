@@ -68,7 +68,7 @@ impl UnvalidatedDMEnum {
     pub(crate) fn validate(self) -> Result<PackedU8, ParseError> {
         let (val, flags) = match self {
             // we store 1 here, but check for the mask in PackedU8.value() and never use the 1
-            Self::Masked => (1, DMFlags::new(Certainty::Certain, DMMask::Masked)),
+            Self::Unspecified => (1, DMFlags::new(Certainty::Certain, DMMask::Unspecified)),
             Self::Unmasked(v) => (v, DMFlags::new(Certainty::Certain, DMMask::None)),
         };
         PackedU8::pack(val, flags).ok_or(ParseError::OutOfRange)
@@ -161,6 +161,7 @@ impl UnvalidatedDate {
 #[cfg(test)]
 mod test {
     use super::api::*;
+    use super::api::matcher::*;
     use super::packed::Certainty::*;
     use super::*;
 
@@ -180,17 +181,17 @@ mod test {
     fn xx_rightmost_only() {
         // yes
         assert_eq!(
-            Date::parse("201X").as_ref().map(Date::as_precision),
-            Ok(super::api::DatePrecision::Year(2010, YearMask::OneDigit))
+            Date::parse("201X").as_ref().map(Date::as_matcher),
+            Ok((DatePrecision::Year(2010, YearDigits::X), Certain))
         );
         assert_eq!(
             Date::parse("20XX"),
-            Ok(Date::from_year_masked(2000, YearMask::TwoDigits))
+            Ok(Date::from_year_masked(2000, YearDigits::XX))
         );
         // same, because we round it
         assert_eq!(
             Date::parse("20XX"),
-            Ok(Date::from_year_masked(2019, YearMask::TwoDigits))
+            Ok(Date::from_year_masked(2019, YearDigits::XX))
         );
 
         assert_eq!(
@@ -353,16 +354,16 @@ mod test {
                 .unwrap()
                 .as_date()
                 .unwrap()
-                .as_precision(),
-            DatePrecision::Year(17000, YearMask::OneDigit)
+                .as_matcher(),
+            (DatePrecision::Year(17000, YearDigits::X), Certain)
         );
         assert_eq!(
             Edtf::parse("Y17000?")
                 .unwrap()
                 .as_date()
-                .map(|d| (d.certainty(), d.as_precision()))
+                .map(|d| d.as_matcher())
                 .unwrap(),
-            (Uncertain, DatePrecision::Year(17000, YearMask::None))
+            (DatePrecision::Year(17000, YearDigits::NoX), Uncertain)
         );
         // ? uncertainty
         // assert_eq!(Edtf::parse("Y17000?"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));

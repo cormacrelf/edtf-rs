@@ -130,7 +130,7 @@ pub(crate) struct UnvalidatedDate {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum UnvalidatedDMEnum {
-    Masked,
+    Unspecified,
     Unmasked(u8),
 }
 
@@ -177,7 +177,7 @@ fn year_maybe_mask(input: &str) -> StrResult<(i32, YearFlags)> {
 }
 
 fn two_digits_maybe_mask(input: &str) -> StrResult<UnvalidatedDMEnum> {
-    let masked = nbc::tag("XX").map(|_| UnvalidatedDMEnum::Masked);
+    let masked = nbc::tag("XX").map(|_| UnvalidatedDMEnum::Unspecified);
     let dig_cert = two_digits.map(|x| UnvalidatedDMEnum::Unmasked(x));
     masked.or(dig_cert).parse(input)
 }
@@ -195,7 +195,7 @@ mod test {
                 "",
                 UnvalidatedDate {
                     year: (2019, Certain.into()),
-                    month: Some(UnvalidatedDMEnum::Masked),
+                    month: Some(UnvalidatedDMEnum::Unspecified),
                     day: None,
                     certainty: Certain,
                 }

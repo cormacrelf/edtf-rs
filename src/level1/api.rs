@@ -114,59 +114,13 @@ use super::{
 };
 
 pub use crate::level1::packed::Certainty;
-pub use crate::level1::packed::YearMask;
+use crate::level1::packed::YearMask;
 
 use core::fmt;
 
 // TODO: Hash everywhere
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
 // TODO: convert to use u32 everywhere for chrono interoperability
-
-/// A month or a day in [DatePrecision]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DatePart {
-    Masked,
-    Normal(u32),
-}
-
-impl DatePart {
-    pub fn value(&self) -> Option<u32> {
-        match *self {
-            Self::Normal(v) => Some(v),
-            Self::Masked => None,
-        }
-    }
-}
-
-/// A season in [DatePrecision] and constructor methods on [Date] e.g. [Date::from_year_season]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Season {
-    Spring = 21,
-    Summer = 22,
-    Autumn = 23,
-    Winter = 24,
-}
-
-impl Season {
-    fn from_u32(value: u32) -> Self {
-        match value {
-            21 => Self::Spring,
-            22 => Self::Summer,
-            23 => Self::Autumn,
-            24 => Self::Winter,
-            _ => panic!("invalid season number {}", value),
-        }
-    }
-}
-
-/// An enum used to conveniently match on an EDTF [Date].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DatePrecision {
-    Year(i32, YearMask),
-    Month(i32, DatePart),
-    Day(i32, DatePart, DatePart),
-    Season(i32, Season),
-}
 
 /// An EDTF date. Represents a standalone date or one end of a interval.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -201,18 +155,60 @@ pub enum Edtf {
     IntervalUnknownTo(Date),
 }
 
+/// A season in [DatePrecision] and constructor methods on [Date] e.g. [Date::from_year_season]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Season {
+    Spring = 21,
+    Summer = 22,
+    Autumn = 23,
+    Winter = 24,
+}
+
+impl Season {
+    fn from_u32(value: u32) -> Self {
+        match value {
+            21 => Self::Spring,
+            22 => Self::Summer,
+            23 => Self::Autumn,
+            24 => Self::Winter,
+            _ => panic!("invalid season number {}", value),
+        }
+    }
+}
+
+pub mod matcher;
+use matcher::*;
+
 /// Represents a 5+ digit, signed year like `Y12345`, `Y-17000`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct YYear(i64);
 
 impl YYear {
+    /// Get the year this represents.
     pub fn year(&self) -> i64 {
         self.0
     }
+
+    /// Gets the year. Like [YYear::year] but takes `self`.
+    ///
+    /// ```
+    /// use edtf::level_1::YYear;
+    /// assert_eq!(YYear::new_opt(12345).map(YYear::value), Some(12345));
+    /// ```
+    pub fn value(self) -> i64 {
+        self.0
+    }
+
     pub(crate) fn raw(y: i64) -> Self {
         Self(y)
     }
-    /// If the value is a four-digit date (invalid for `Y`-years), returns None.
+
+    /// Creates a YYear but **panics** if value is fewer than 5 digits.
+    pub fn new(value: i64) -> Self {
+        Self::new_opt(value).expect("value outside range for YYear, must be 5-digit year")
+    }
+
+    /// If the value is fewer than 5 digits (invalid for `Y`-years), returns None.
     pub fn new_opt(value: i64) -> Option<Self> {
         if helpers::inside_9999(value) {
             return None;
@@ -220,7 +216,8 @@ impl YYear {
         Some(Self(value))
     }
 
-    /// If the value is a four-digit date, returns an [Edtf::Date] calendar date instead.
+    /// If the value is fewer than 5 digits (invalid for `Y`-years), returns an [Edtf::Date]
+    /// calendar date instead.
     pub fn new_or_cal(value: i64) -> Result<Self, Edtf> {
         if helpers::inside_9999(value) {
             let date = value
@@ -254,9 +251,9 @@ impl Edtf {
             _ => None,
         }
     }
-    pub fn as_range(&self) -> Option<(Date, Date)> {
-        match self {
-            Self::Interval(d, d2) => Some((*d, *d2)),
+    pub fn as_interval(&self) -> Option<(Terminal, Terminal)> {
+        match self.as_matcher() {
+            Matcher::Interval(t1, t2) => Some((t1, t2)),
             _ => None,
         }
     }
@@ -264,6 +261,52 @@ impl Edtf {
         match self {
             Self::DateTime(d) => Some(*d),
             _ => None,
+        }
+    }
+    pub fn as_matcher(&self) -> Matcher {
+        use matcher::{Matcher::*, Terminal::*};
+        match self {
+            Self::Date(d) => Single(d.as_matcher().0, d.certainty()),
+            Self::DateTime(d) => WithTime(*d),
+            Self::YYear(d) => Scientific(d.value()),
+            Self::Interval(d, d2) => Interval(d.as_terminal(), d2.as_terminal()),
+            Self::IntervalOpenFrom(d) => Interval(d.as_terminal(), Open),
+            Self::IntervalOpenTo(d) => Interval(Open, d.as_terminal()),
+            Self::IntervalUnknownFrom(d) => Interval(d.as_terminal(), Unknown),
+            Self::IntervalUnknownTo(d) => Interval(Unknown, d.as_terminal()),
+        }
+    }
+}
+
+/// Specifies the number of Xs in `2019`/`201X`/`20XX`.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum YearDigits {
+    /// `2019`
+    NoX,
+    /// `201X`
+    X,
+    /// `20XX`
+    XX,
+}
+
+#[doc(hidden)]
+impl From<YearMask> for YearDigits {
+    fn from(ym: YearMask) -> Self {
+        match ym {
+            YearMask::None => Self::NoX,
+            YearMask::OneDigit => Self::X,
+            YearMask::TwoDigits => Self::XX,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<YearDigits> for YearMask {
+    fn from(ym: YearDigits) -> Self {
+        match ym {
+            YearDigits::NoX => YearMask::None,
+            YearDigits::X => YearMask::OneDigit,
+            YearDigits::XX => YearMask::TwoDigits,
         }
     }
 }
@@ -348,14 +391,14 @@ impl Date {
     /// Equivalent to `201X` or `20XX`. The year has its masked digits replaced with zeroes.
     ///
     /// Panics if year is out of range.
-    pub fn from_year_masked(year: i32, mask: YearMask) -> Self {
+    pub fn from_year_masked(year: i32, mask: YearDigits) -> Self {
         let year = match mask {
-            YearMask::None => year,
-            YearMask::OneDigit => year - year % 10,
-            YearMask::TwoDigits => year - year % 100,
+            YearDigits::NoX => year,
+            YearDigits::X => year - year % 10,
+            YearDigits::XX => year - year % 100,
         };
         UnvalidatedDate {
-            year: (year, YearFlags::new(Default::default(), mask)),
+            year: (year, YearFlags::new(Default::default(), mask.into())),
             ..Default::default()
         }
         .validate()
@@ -368,7 +411,7 @@ impl Date {
     pub fn from_year_masked_month(year: i32) -> Self {
         UnvalidatedDate {
             year: (year, YearFlags::default()),
-            month: Some(UnvalidatedDMEnum::Masked),
+            month: Some(UnvalidatedDMEnum::Unspecified),
             ..Default::default()
         }
         .validate()
@@ -381,8 +424,8 @@ impl Date {
     pub fn from_year_masked_month_day(year: i32) -> Self {
         UnvalidatedDate {
             year: (year, YearFlags::default()),
-            month: Some(UnvalidatedDMEnum::Masked),
-            day: Some(UnvalidatedDMEnum::Masked),
+            month: Some(UnvalidatedDMEnum::Unspecified),
+            day: Some(UnvalidatedDMEnum::Unspecified),
             ..Default::default()
         }
         .validate()
@@ -398,7 +441,7 @@ impl Date {
         UnvalidatedDate {
             year: (year, YearFlags::default()),
             month: month.try_into().ok().map(UnvalidatedDMEnum::Unmasked),
-            day: Some(UnvalidatedDMEnum::Masked),
+            day: Some(UnvalidatedDMEnum::Unspecified),
             ..Default::default()
         }
         .validate()
@@ -432,13 +475,16 @@ impl Date {
         }
     }
 
-    /// Returns an enum more suited to use with a `match` expression.
-    /// Note that the [DatePrecision] type does not contain a date-as-a-whole Certainty field. You
-    /// can easily fetch it separately with [Date::certainty].
+    /// Private.
+    fn as_terminal(&self) -> Terminal {
+        let (prec, cert) = self.as_matcher();
+        Terminal::Fixed(prec, cert)
+    }
+    /// Returns an structure more suited to use with a `match` expression.
     ///
     /// The internal representation of `Date` is packed to reduce its memory footprint, hence this
     /// API.
-    pub fn as_precision(&self) -> DatePrecision {
+    pub fn as_matcher(&self) -> (DatePrecision, Certainty) {
         let (
             y,
             YearFlags {
@@ -447,7 +493,8 @@ impl Date {
                 mask: ym,
             },
         ) = self.year.unpack();
-        match (self.month, self.day) {
+        let certainty = self.certainty();
+        let precision = match (self.month, self.day) {
             (Some(month), None) => match month.value_u32() {
                 Some(m) => {
                     if m >= 21 && m <= 24 {
@@ -458,21 +505,25 @@ impl Date {
                         unreachable!("month was out of range")
                     }
                 }
-                None => DatePrecision::Month(y, DatePart::Masked),
+                None => DatePrecision::Month(y, DatePart::Unspecified),
             },
             (Some(month), Some(day)) => match (month.value_u32(), day.value_u32()) {
                 (None, Some(_)) => {
                     unreachable!("date should never hold a masked month with unmasked day")
                 }
-                (None, None) => DatePrecision::Day(y, DatePart::Masked, DatePart::Masked),
-                (Some(m), None) => DatePrecision::Day(y, DatePart::Normal(m), DatePart::Masked),
+                (None, None) => DatePrecision::Day(y, DatePart::Unspecified, DatePart::Unspecified),
+                (Some(m), None) => {
+                    DatePrecision::Day(y, DatePart::Normal(m), DatePart::Unspecified)
+                }
                 (Some(m), Some(d)) => {
                     DatePrecision::Day(y, DatePart::Normal(m), DatePart::Normal(d))
                 }
             },
-            (None, None) => DatePrecision::Year(y, ym),
+            (None, None) => DatePrecision::Year(y, ym.into()),
             (None, Some(_)) => unreachable!("date should never hold a day but not a month"),
-        }
+        };
+
+        (precision, certainty)
     }
 }
 
@@ -485,20 +536,20 @@ mod test {
     fn match_precision() {
         let date = Date::parse("2019-09?").unwrap();
         assert_eq!(
-            date.as_precision(),
-            DatePrecision::Month(2019, DatePart::Normal(9))
+            date.as_matcher(),
+            (DatePrecision::Month(2019, DatePart::Normal(9)), Uncertain)
         );
     }
 
     #[test]
     fn masking_with_uncertain() {
         assert_eq!(
-            Date::parse("201X?").unwrap().as_precision(),
-            DatePrecision::Year(2010, YearMask::OneDigit)
+            Date::parse("201X?").unwrap().as_matcher(),
+            (DatePrecision::Year(2010, YearDigits::X), Uncertain)
         );
         assert_eq!(
-            Date::parse("2019-XX?").unwrap().as_precision(),
-            DatePrecision::Month(2019, DatePart::Masked)
+            Date::parse("2019-XX?").unwrap().as_matcher(),
+            (DatePrecision::Month(2019, DatePart::Unspecified), Uncertain)
         );
     }
 
@@ -559,13 +610,13 @@ impl fmt::Display for Date {
             let (m, mf) = month.unpack();
             match mf.mask {
                 DMMask::None => write!(f, "-{:02}", m)?,
-                DMMask::Masked => write!(f, "-XX")?,
+                DMMask::Unspecified => write!(f, "-XX")?,
             }
             if let Some(day) = day {
                 let (d, df) = day.unpack();
                 match df.mask {
                     DMMask::None => write!(f, "-{:02}", d)?,
-                    DMMask::Masked => write!(f, "-XX")?,
+                    DMMask::Unspecified => write!(f, "-XX")?,
                 }
             }
         }

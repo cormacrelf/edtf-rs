@@ -175,7 +175,7 @@ pub enum DMMask {
     /// `2019-05`
     None = 0,
     /// `2019-XX`
-    Masked = 1,
+    Unspecified = 1,
 }
 
 impl Default for DMMask {
@@ -188,7 +188,7 @@ impl From<u8> for DMMask {
     fn from(bits: u8) -> Self {
         match bits {
             0 => DMMask::None,
-            1 => DMMask::Masked,
+            1 => DMMask::Unspecified,
             _ => panic!("bit pattern {:b} out of range for DayMonthMask", bits),
         }
     }
@@ -296,11 +296,11 @@ fn test_packed_month_day() {
         assert_eq!((a, b), (aa, bb));
     }
     roundtrip(1, Certain.into());
-    roundtrip(12, Mask::Masked.into());
+    roundtrip(12, Mask::Unspecified.into());
     // we can store a day in a PackedU8, since 31 == u8::MAX >> 3.
     // However, we can't store the Level 2 extended season info in there, as those go up to 41.
     // So we'll just use a U16 for that.
-    roundtrip(31, Mask::Masked.into());
+    roundtrip(31, Mask::Unspecified.into());
 }
 
 #[test]
