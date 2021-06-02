@@ -23,6 +23,16 @@ pub(crate) fn outside_9999(n: i64) -> bool {
     !inside_9999(n)
 }
 
+/// Note: this always rounds towards negative infinity.
+pub(crate) fn beginning_of_century(year: i32) -> i32 {
+    year - year.rem_euclid(100)
+}
+
+/// Note: this always rounds towards negative infinity.
+pub(crate) fn beginning_of_decade(year: i32) -> i32 {
+    year - year.rem_euclid(10)
+}
+
 // nom
 
 pub struct Optional<P: Parser<I, O, E>, I, O, E> {

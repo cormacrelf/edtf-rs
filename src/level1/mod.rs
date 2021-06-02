@@ -4,21 +4,21 @@
 //
 // Copyright © 2021 Corporation for Digital Scholarship
 
-use core::convert::TryInto;
 use crate::common::is_valid_complete_date;
 use crate::ParseError;
+use core::convert::TryInto;
 use ParseError::*;
 
 pub mod api;
 pub(crate) mod packed;
 mod parser;
 
-use crate::DateTime;
 use self::{
     api::{Date, Edtf, YYear},
     packed::{Certainty, DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
 };
+use crate::DateTime;
 
 impl ParsedEdtf {
     fn validate(self) -> Result<Edtf, ParseError> {
@@ -161,7 +161,6 @@ impl UnvalidatedDate {
 #[cfg(test)]
 mod test {
     use super::api::*;
-    use super::api::matcher::*;
     use super::packed::Certainty::*;
     use super::*;
 
@@ -182,29 +181,29 @@ mod test {
         // yes
         assert_eq!(
             Date::parse("201X").as_ref().map(Date::as_matcher),
-            Ok((DatePrecision::Year(2010, YearDigits::X), Certain))
+            Ok((Precision::Decade(2010), Certain))
         );
         assert_eq!(
             Date::parse("20XX"),
-            Ok(Date::from_year_masked(2000, YearDigits::XX))
+            Ok(Date::from_precision(Precision::Century(2000)))
         );
         // same, because we round it
         assert_eq!(
             Date::parse("20XX"),
-            Ok(Date::from_year_masked(2019, YearDigits::XX))
+            Ok(Date::from_precision(Precision::Century(2019)))
         );
 
         assert_eq!(
             Date::parse("2019-XX"),
-            Ok(Date::from_year_masked_month(2019))
+            Ok(Date::from_precision(Precision::MonthOfYear(2019)))
         );
         assert_eq!(
             Date::parse("2019-XX-XX"),
-            Ok(Date::from_year_masked_month_day(2019))
+            Ok(Date::from_precision(Precision::DayOfYear(2019)))
         );
         assert_eq!(
             Date::parse("2019-07-XX"),
-            Ok(Date::from_ym_masked_day(2019, 7))
+            Ok(Date::from_precision(Precision::DayOfMonth(2019, 7)))
         );
         // no
         assert_eq!(Date::parse("2019-XX-09"), Err(Invalid));
@@ -295,10 +294,7 @@ mod test {
 
     fn scientific_l1() {
         // yes - 5+ digits
-        assert_eq!(
-            Edtf::parse("Y157900"),
-            Ok(Edtf::YYear(YYear::raw(157900))),
-        );
+        assert_eq!(Edtf::parse("Y157900"), Ok(Edtf::YYear(YYear::raw(157900))),);
         assert_eq!(
             Edtf::parse("Y1234567890"),
             Ok(Edtf::YYear(YYear::raw(1234567890))),
@@ -344,18 +340,21 @@ mod test {
         );
 
         // full date
-        assert_eq!(Edtf::parse("Y17000-08-16"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));
+        assert_eq!(
+            Edtf::parse("Y17000-08-16"),
+            Ok(Edtf::Date(Date::from_ymd(17000, 08, 16)))
+        );
         //
         // TODO: API to create uncertain/unspecified dates
         //
         // X unspecified digits
         assert_eq!(
-            Edtf::parse("Y1700X")
+            Edtf::parse("Y170XX")
                 .unwrap()
                 .as_date()
                 .unwrap()
                 .as_matcher(),
-            (DatePrecision::Year(17000, YearDigits::X), Certain)
+            (Precision::Century(17000), Certain)
         );
         assert_eq!(
             Edtf::parse("Y17000?")
@@ -363,7 +362,7 @@ mod test {
                 .as_date()
                 .map(|d| d.as_matcher())
                 .unwrap(),
-            (DatePrecision::Year(17000, YearDigits::NoX), Uncertain)
+            (Precision::Year(17000), Uncertain)
         );
         // ? uncertainty
         // assert_eq!(Edtf::parse("Y17000?"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));

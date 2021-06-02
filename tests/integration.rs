@@ -33,7 +33,7 @@ mod one {
         assert_eq!(
             Edtf::parse("2019-01-XX~/2020-01?"),
             Ok(Edtf::Interval(
-                Date::from_ym_masked_day(2019, 1).and_certainty(Certainty::Approximate),
+                Date::from_precision(Precision::DayOfMonth(2019, 1)).and_certainty(Certainty::Approximate),
                 Date::from_ymd(2020, 1, 0).and_certainty(Certainty::Uncertain),
             )),
         );
