@@ -41,3 +41,4 @@ command = [
   "--no-deps",
   "--all-features",
 ]
+watch = ["README.md"]

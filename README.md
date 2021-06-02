@@ -1,17 +1,28 @@
 # edtf
 
-This crate implements the [Extended Date/Time Format](https://www.loc.gov/standards/datetime/)
-as of the 2019-02 specification. It contains separate implementations for each level 0, 1, and
-2. Notes on the choices made in each level are found in in the module level documentation.
+![docs.rs](https://docs.rs/edtf/badge.svg)
 
-#### Features:
+This crate implements the [Extended Date/Time
+Format](https://www.loc.gov/standards/datetime/) as of the 2019-02
+specification. It contains separate implementations for each level 0, 1 (and 2,
+but not yet). Notes on the choices made in each level are found in in the
+module level documentation.
+
+### Installation
+
+```toml
+[dependencies]
+edtf = "0.1.0"
+```
+
+### Features:
 
 - Lossless. Each parsed Edtf can be formatted again to output exactly the same string.
 - Strict. Rejects everything the specification rejects as a parse error. All the types make it
   impossible to construct an invalid Edtf object.
 - Works with [`chrono`](https://lib.rs/chrono) via the optional `features = ["chrono"]`.
 
-#### General notes on EDTF
+### General notes on EDTF
 
 It is probably not stated often enough that EDTF and ISO 8601 support only one calendar, the
 [proleptic Gregorian calendar](https://en.wikipedia.org/wiki/Proleptic_Gregorian_calendar).
@@ -27,7 +38,7 @@ dates](https://en.wikipedia.org/wiki/List_of_adoption_dates_of_the_Gregorian_cal
 *[this section needs a link to a good Julian converter]*.
 
 
-#### Level 0 example
+### Level 0 example
 
 ```rust
 use edtf::level_0::Edtf;
