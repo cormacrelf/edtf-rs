@@ -27,6 +27,7 @@ default-features = false
 optional = true
 
 [dev-dependencies]
+doc-comment = "0.3.3"
 no-panic = "0.1.15"
 version-sync = "0.9"
 

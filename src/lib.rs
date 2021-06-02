@@ -6,8 +6,15 @@
 
 #![allow(dead_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![cfg_attr(docsrs, feature(external_doc))]
-#![cfg_attr(docsrs, doc(include = "../README.md"))]
+
+// apparently #[doc = $expr] will be released on stable soon. But, not yet.
+// #![cfg_attr(docsrs, doc = include_str!("../README.md"))]
+// so this just tests the code examples in the README
+#[cfg(doctest)]
+#[macro_use]
+extern crate doc_comment;
+#[cfg(doctest)]
+doctest!("../README.md");
 
 pub(crate) mod common;
 pub(crate) mod helpers;
