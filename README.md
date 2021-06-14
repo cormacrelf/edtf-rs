@@ -68,8 +68,7 @@ Julian dates between 1 January and 25 March are often 'dual dated', i.e.:
 > > Julian calendar in use in that locality, and the second was the year that
 > > it would have been if they had changed the year number on January 1.
 >
-> E.g. *19 February 1683/1684*. Careful, EDTF hadn't been invented yet, so that's
-not EDTF!
+> E.g. *19 February 1683/4*.
 
 
 [local-adoption]: https://en.wikipedia.org/wiki/List_of_adoption_dates_of_the_Gregorian_calendar_per_country
