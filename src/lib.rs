@@ -7,6 +7,9 @@
 #![allow(dead_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(all(doc, feature = "chrono"))]
+use chrono::NaiveDate;
+
 // apparently #[doc = $expr] will be released on stable soon. But, not yet.
 // #![cfg_attr(docsrs, doc = include_str!("../README.md"))]
 // so this just tests the code examples in the README
@@ -88,14 +91,14 @@ impl DateTime {
     /// Get the `TzOffset`. If `None` is returned, this represents a timestamp which did not
     /// specify a timezone.
     ///
-    /// If using the `chrono` interop, None means you should attempt to convert to a [chrono::NaiveDate]
+    /// If using the `chrono` interop, None means you should attempt to convert to a chrono::[NaiveDate]
     pub fn offset(&self) -> Option<TzOffset> {
         self.time.offset()
     }
 
-    /// Convert to a [chrono::NaiveDate]
     #[cfg(feature = "chrono")]
     #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
+    /// Convert to a chrono::[NaiveDate]
     pub fn to_chrono_naive(&self) -> chrono::NaiveDateTime {
         let date = self.date.to_chrono();
         let time = self.time.to_chrono_naive();
@@ -147,11 +150,32 @@ impl DateTime {
 
 /// A structure to hold the date portion of a [DateTime]. It contains a valid date in the proleptic
 /// Gregorian calendar.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct DateComplete {
     pub(crate) year: i32,
     pub(crate) month: NonZeroU8,
     pub(crate) day: NonZeroU8,
+}
+
+impl fmt::Debug for DateComplete {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <Self as fmt::Display>::fmt(self, f)
+    }
+}
+impl fmt::Display for DateComplete {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let DateComplete {
+            year,
+            month,
+            day,
+        } = *self;
+        let sign = helpers::sign_str_if_neg(year);
+        let year = year.abs();
+        write!(f, "{}{:04}", sign, year)?;
+        write!(f, "-{:02}", month)?;
+        write!(f, "-{:02}", day)?;
+        Ok(())
+    }
 }
 
 impl DateComplete {

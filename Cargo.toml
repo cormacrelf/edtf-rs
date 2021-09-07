@@ -17,6 +17,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = [ ]
 
+[dependencies.num-integer]
+version = "0.1.36"
+default-features = false
+
 [dependencies.nom]
 version = "6"
 default-features = false

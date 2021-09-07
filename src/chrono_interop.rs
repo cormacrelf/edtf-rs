@@ -129,6 +129,14 @@ impl crate::level_0::Date {
     }
 }
 
+/// Attempts conversion via [crate::level_0::Date::to_chrono].
+impl TryFrom<crate::level_0::Date> for NaiveDate {
+    type Error = ();
+    fn try_from(value: crate::level_0::Date) -> Result<Self, Self::Error> {
+        value.to_chrono().ok_or(())
+    }
+}
+
 impl crate::level_1::Date {
     /// If this date is complete, i.e. it has a month and a day, produces a [chrono::NaiveDate].
     /// Also available via an [core::convert::TryFrom] implementation on [chrono::NaiveDate].
@@ -144,7 +152,7 @@ impl crate::level_1::Date {
     }
 }
 
-/// Attempts conversion via [Date::to_chrono].
+/// Attempts conversion via [crate::level_1::Date::to_chrono].
 impl TryFrom<crate::level_1::Date> for NaiveDate {
     type Error = ();
     fn try_from(value: crate::level_1::Date) -> Result<Self, Self::Error> {

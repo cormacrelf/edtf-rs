@@ -118,6 +118,8 @@ use crate::level1::packed::YearMask;
 
 use core::fmt;
 
+pub mod iter;
+
 // TODO: Hash everywhere
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
 
@@ -747,14 +749,6 @@ impl fmt::Display for Date {
 impl fmt::Debug for Date {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
-    }
-}
-
-impl fmt::Display for DateComplete {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let DateComplete { year, month, day } = *self;
-        write!(f, "{:04}-{:02}-{:02}", year, month, day)?;
-        Ok(())
     }
 }
 
