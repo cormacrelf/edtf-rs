@@ -216,8 +216,8 @@ impl Time {
         };
         let mut time = unval.validate().ok()?;
         let tz = tz.and_then(|tz| match tz {
-            TzOffset::Hours(x) if x < 24 => Some(tz),
-            TzOffset::Minutes(x) if x < 24 * 60 => Some(tz),
+            TzOffset::Hours(x) if x.abs() < 24 => Some(tz),
+            TzOffset::Minutes(x) if x.abs() < 24 * 60 => Some(tz),
             TzOffset::Utc => Some(tz),
             _ => None,
         });
