@@ -21,16 +21,16 @@ need_stdout = false
 [jobs.test]
 command = ["cargo", "test", "--color", "always"]
 need_stdout = true
-watch = ["tests", "README.md", "src/level_1/README.md"]
+watch = ["tests", "README.md", "src/level_1/README.md", "src/level_1/YYear.md"]
 
 [jobs.doctest]
 command = ["cargo", "test", "--color", "always", "--doc"]
 need_stdout = true
-watch = ["tests", "README.md", "src/level_1/README.md"]
+watch = ["tests", "README.md", "src/level_1/README.md", "src/level_1/YYear.md"]
 
 [jobs.doc]
 command = ["cargo", "doc", "--color", "always", "--no-deps"]
-watch = ["README.md", "src/level_1/README.md"]
+watch = ["README.md", "src/level_1/README.md", "src/level_1/YYear.md"]
 
 [jobs.docs-rs]
 command = [
@@ -43,4 +43,4 @@ command = [
   "--no-deps",
   "--all-features",
 ]
-watch = ["README.md", "src/level_1/README.md"]
+watch = ["README.md", "src/level_1/README.md", "src/level_1/YYear.md"]

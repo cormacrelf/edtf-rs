@@ -197,6 +197,8 @@ pub enum Precision {
 }
 
 /// Represents a 5+ digit, signed year like `Y12345`, `Y-17000`.
+///
+#[doc = include_str!("YYear.md")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct YYear(i64);
 
