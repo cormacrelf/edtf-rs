@@ -4,13 +4,13 @@
 //
 // Copyright © 2021 Corporation for Digital Scholarship
 
-use crate::{ParseError, common::is_valid_complete_date};
+use crate::{common::is_valid_complete_date, ParseError};
 
 use core::num::NonZeroU8;
 
 mod parser;
-use crate::{DateComplete, DateTime, Time, TzOffset};
 use crate::common::{UnvalidatedTime, UnvalidatedTz};
+use crate::{DateComplete, DateTime, Time, TzOffset};
 use parser::ParsedEdtf;
 
 pub mod api;

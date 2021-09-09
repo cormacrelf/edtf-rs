@@ -37,11 +37,11 @@
 //! | `[date]/[date]` | `1964/2008`<br> `2004-06/2006-08` <br> `2004-02-01/2005-02-08` <br> `2004-02-01/2005-02` <br> etc |
 //!
 
-use crate::ParseError;
 use crate::helpers;
+use crate::ParseError;
 use core::convert::TryInto;
-use core::num::NonZeroU8;
 use core::fmt;
+use core::num::NonZeroU8;
 
 use crate::DateTime;
 
@@ -155,7 +155,6 @@ impl core::str::FromStr for Edtf {
     }
 }
 
-
 impl fmt::Display for Edtf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -168,11 +167,7 @@ impl fmt::Display for Edtf {
 
 impl fmt::Display for Date {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Date {
-            year,
-            month,
-            day,
-        } = *self;
+        let Date { year, month, day } = *self;
         let sign = helpers::sign_str_if_neg(year);
         let year = year.abs();
         write!(f, "{}{:04}", sign, year)?;
@@ -185,5 +180,3 @@ impl fmt::Display for Date {
         Ok(())
     }
 }
-
-

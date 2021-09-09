@@ -5,7 +5,7 @@
 // Copyright © 2021 Corporation for Digital Scholarship
 
 use crate::helpers::ParserExt;
-use crate::{ParseError, DateComplete};
+use crate::{DateComplete, ParseError};
 use core::num::NonZeroU8;
 use core::str::FromStr;
 

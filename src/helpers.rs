@@ -8,11 +8,19 @@ use core::marker::PhantomData;
 use nom::{error::ErrorKind, error::ParseError, Err, IResult, InputLength, Parser};
 
 pub(crate) fn sign_str_always(n: i32) -> &'static str {
-    if n.signum() >= 0 { "+" } else { "-" }
+    if n.signum() >= 0 {
+        "+"
+    } else {
+        "-"
+    }
 }
 
 pub(crate) fn sign_str_if_neg(n: i32) -> &'static str {
-    if n.signum() == -1 { "-" } else { "" }
+    if n.signum() == -1 {
+        "-"
+    } else {
+        ""
+    }
 }
 
 pub(crate) fn inside_9999(n: i64) -> bool {

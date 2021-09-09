@@ -1,5 +1,5 @@
-use super::*;
 use super::Certainty::*;
+use super::*;
 use crate::ParseError::{self, *};
 
 #[test]
@@ -205,5 +205,3 @@ fn y_year_features() {
     // ? uncertainty
     // assert_eq!(Edtf::parse("Y17000?"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));
 }
-
-
