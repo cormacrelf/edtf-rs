@@ -22,10 +22,9 @@ doctest!("../README.md");
 pub(crate) mod common;
 pub(crate) mod helpers;
 mod level0;
-mod level1;
+pub mod level_1;
 mod level2;
 pub use level0::api as level_0;
-pub use level1::api as level_1;
 #[doc(hidden)]
 pub use level2::api as level_2;
 

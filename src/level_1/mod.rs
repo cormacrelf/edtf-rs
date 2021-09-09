@@ -4,121 +4,30 @@
 //
 // Copyright © 2021 Corporation for Digital Scholarship
 
-//! # EDTF Level 1
-//!
-//! ## Letter-prefixed calendar year ✅
-//!
-//! > 'Y' may be used at the beginning of the date string to signify that the date is a year, when
-//! (and only when) the year exceeds four digits, i.e. for years later than 9999 or earlier than
-//! -9999.
-//!
-//! - 'Y170000002' is the year 170000002
-//! - 'Y-170000002' is the year -170000002
-//!
-//! ### Notes:
-//!
-//! It is unclear how many other features should be supported in `Y`-years. The spec is pretty
-//! quiet on this. The main reason in favour of adding a bunch of features is that `Y`-years are
-//! called "date", and the "date" concept is reused all over the place. Here's some pro/con
-//! analysis of adding features:
-//!
-//! - Can they be followed by a month and day/season?
-//!   - Probably not, because the spec says '*to signify that the date is a year*'. Also who cares
-//!   whether 10,000BC was a Thursday?
-//! - Can they take `X/XX` unspecified digits?
-//!   - In Level 2 there is already the significant digits functionality, which kinda covers this
-//!   via `S1`/`S2`. So probably not.
-//! - Can they have a `?~%` uncertainty attached?
-//!   - If you're talking about 10,000BC, it is rare that you could actually be certain. But that
-//!   only makes it logical that the additional uncertainty flags are not actually necessary.
-//! - Can they be put in ranges?
-//!   - Absolutely no reason why not. In fact this is probably *the* most useful feature for them.
-//!   Plus, years in L2 can have significant digits, which is shorthand for making a special kind
-//!   of range with an estimate. **Leaning yes.**
-//! - or L2 sets?
-//!   - No great reasons for/against. But those sets are designed for enumerating specific
-//!   years/months/days, which is not useful for Y-years because they are typically so inaccurate.
-//!
-//!
-//! This table lists compatibility with other implementations as of 2021-05-26.
-//!
+#![doc = include_str!("README.md")]
 
-//! | Implementation                   | Rust    | [validator][v] | [PHP][php] | [Dart][dart] | [edtf.js][js] | [edtf-ruby][rb] | [python-edtf][py] |
-//! | ---                              | --      | --             | --         | --           | --            | --              | --                |
-//! | Last Updated                     |         | 2020-11        | 2021-05    | 2019         | 2020-11       | 2020-11         | 2018-06           |
-//! | Draft version supported          | 2019-02 | 2019-02        | 2019-02    | 2019-02      | 2019-02       | 2012 ⚠️          | 2012 ⚠️            |
-//! | More info                        |         | [info][vh]     |            |              |               |                 |                   |
-//! | Rejects 4-digit `Y1234`          | ✅      | ✅             | ❌         | ❌           | ✅            | ✅              | ✅                |
-//! | `Y17000`, `Y-17000` (base)       | ✅      | ✅             | ✅         | ✅           | ✅            | ✅              | ✅                |
-//! | `Y17000-08-18`                   | ❌      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
-//! | `Y1700X`                         | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
-//! | `Y17000?`                        | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
-//! | `Y-17000/2003`, `Y17000/..` etc. | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
-//! | `[Y17000..]`, etc.               | 🧐      | ❌             | ✅         | ✅           | ❌            | ❌              | ❌                |
+pub mod iter;
+pub(crate) mod packed;
 
-//!
-//! [v]: https://digital2.library.unt.edu/edtf/
-//! [vh]: https://library.unt.edu/digital-projects-unit/metadata/fields/date/
-//! [php]: https://github.com/ProfessionalWiki/EDTF
-//! [dart]: https://github.com/maalexy/edtf
-//! [js]: https://npmjs.com/package/edtf/
-//! [rb]: https://rubygems.org/gems/edtf/
-//! [py]: https://pypi.org/project/edtf/
-//!
-//! Test suites: [php](https://github.com/ProfessionalWiki/EDTF/blob/c0f54c0c8dff3c00f9b32ea3e773315d6a5f2c9e/tests/Functional/Level1/PrefixedYearTest.php),
-//! [js]()
-//! [rb](https://github.com/inukshuk/edtf-ruby/blob/7ee86d81ddb7d6503d5b282a409eb43e51f27186/spec/edtf/parser_spec.rb#L74-L80),
-//! [py](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L101-L103) but [considers `y17e7-12-26` to be "not implemented"](https://github.com/ixc/python-edtf/blob/3bff48427b9f1452fcc030e1cc30e4e6808febc5/edtf/parser/tests.py#L195) rather than not part of the spec.
-//!
-//! *⚠️: The 2012 draft uses the old `y12345` syntax.*
-//!
-//! ## Seasons ✅
-//!
-//! Using Spring=21, Summer=22, Autumn=23, Winter=24.
-//!
-//! ## Qualification of a date (complete) ✅
-//!
-//! > The characters '?', '~' and '%' are used to mean "uncertain", "approximate", and "uncertain"
-//! as well as "approximate", respectively. These characters may occur only at the end of the date
-//! string and apply to the entire date.
-//!
-//! ## Unspecified digit(s) from the right ✅
-//!
-//! > The character 'X' may be used in place of one or more rightmost digits to indicate that the
-//! value of that digit is unspecified, for the following cases:
-//!
-//! - `201X`, `20XX`: Year only, one or two digits: `201X`, `20XX`
-//! - `2004-XX`: Year specified, *month unspecified*, month precision: `2004-XX` (different from `2004`, as
-//!   it has month precision but no actual month, whereas `2004` has year precision only)
-//! - `2004-07-XX`: Year and month specified, *day unspecified* in a year-month-day expression (day precision)
-//! - `2004-XX-XX`: Year specified, *day and month unspecified* in a year-month-day expression  (day precision)
-//!
-//! ## Extended Interval (L1) ✅
-//!
-//! - unknown start or end: `/[date]`, `[date]/`
-//! - open interval, (for example 'until date' or 'from date onwards'): `../[date]`, `[date]/..`
-//!
-//! ## Negative calendar year ✅
-//!
-//! `-1740`
+mod parser;
+mod validate;
+
+#[cfg(test)]
+mod test;
 
 use core::convert::TryInto;
+use core::fmt;
 use core::str::FromStr;
 
 use crate::helpers;
 use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
 
-use super::{
-    packed::{DMMask, PackedInt, PackedU8, PackedYear, YearFlags},
+use self::{
+    packed::{DMMask, PackedInt, PackedU8, PackedYear, YearFlags, YearMask},
     parser::{ParsedEdtf, UnvalidatedDate},
 };
 
-pub use crate::level1::packed::Certainty;
-use crate::level1::packed::YearMask;
-
-use core::fmt;
-
-pub mod iter;
+pub use packed::Certainty;
 
 // TODO: Hash everywhere
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
@@ -644,46 +553,6 @@ impl Date {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::level_1::*;
-    use Certainty::*;
-
-    #[test]
-    fn match_precision() {
-        let date = Date::parse("2019-09?").unwrap();
-        assert_eq!(date.as_matcher(), (Precision::Month(2019, 9), Uncertain));
-    }
-
-    #[test]
-    fn masking_with_uncertain() {
-        assert_eq!(
-            Date::parse("201X?").unwrap().as_matcher(),
-            (Precision::Decade(2010), Uncertain)
-        );
-        assert_eq!(
-            Date::parse("2019-XX?").unwrap().as_matcher(),
-            (Precision::MonthOfYear(2019), Uncertain)
-        );
-    }
-
-    #[test]
-    fn ranges() {
-        assert_eq!(
-            Edtf::parse("2020/2021"),
-            Ok((Date::from_year(2020), Date::from_year(2021)).into())
-        );
-        assert_eq!(
-            Edtf::parse("2020?/2021"),
-            Ok((
-                Date::from_year(2020).and_certainty(Uncertain),
-                Date::from_year(2021)
-            )
-                .into())
-        );
-    }
-}
-
 impl From<Date> for Edtf {
     fn from(date: Date) -> Self {
         Self::Date(date)
@@ -797,58 +666,4 @@ impl fmt::Display for Edtf {
             Self::DateTime(dt) => write!(f, "{}", dt),
         }
     }
-}
-
-#[cfg(test)]
-macro_rules! test_roundtrip {
-    ($x:literal) => {
-        assert_eq!(Edtf::parse($x).unwrap().to_string(), $x);
-    };
-    ($x:literal, $y:literal) => {
-        assert_eq!(Edtf::parse($x).unwrap().to_string(), $y);
-    };
-}
-
-#[test]
-fn test_lossless_roundtrip() {
-    // dates and uncertainties
-    test_roundtrip!("2019-08-17");
-    test_roundtrip!("2019-08");
-    test_roundtrip!("2019");
-    test_roundtrip!("2019-08-17?");
-    test_roundtrip!("2019-08?");
-    test_roundtrip!("2019?");
-    test_roundtrip!("2019-08-17~");
-    test_roundtrip!("2019-08%");
-    test_roundtrip!("2019%");
-    // funky years
-    test_roundtrip!("0043-08");
-    test_roundtrip!("-0043-08");
-    // timezones
-    test_roundtrip!("2019-08-17T23:59:30");
-    test_roundtrip!("2019-08-17T23:59:30Z");
-    test_roundtrip!("2019-08-17T01:56:00+04:30");
-    test_roundtrip!("2019-08-17T23:59:30+00");
-    test_roundtrip!("2019-08-17T23:59:30+04");
-    test_roundtrip!("2019-08-17T23:59:30-04");
-    test_roundtrip!("2019-08-17T23:59:30+00:00");
-    test_roundtrip!("2019-08-17T23:59:30+00:05");
-    test_roundtrip!("2019-08-17T23:59:30+23:59");
-    test_roundtrip!("2019-08-17T23:59:30-10:00");
-    test_roundtrip!("2019-08-17T23:59:30-10:19");
-}
-
-#[test]
-fn leap_second() {
-    test_roundtrip!("2019-08-17T23:59:60Z");
-    // no, leap seconds are always inserted at 23:59:60.
-    // (unless they're removed, in which case 23:59:59 is removed.)
-    assert_eq!(
-        Edtf::parse("2019-08-17T22:59:60Z"),
-        Err(ParseError::OutOfRange),
-    );
-    assert_eq!(
-        Edtf::parse("2019-08-17T23:58:60Z"),
-        Err(ParseError::OutOfRange),
-    );
 }

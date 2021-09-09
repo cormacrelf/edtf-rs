@@ -9,8 +9,8 @@ use core::num::NonZeroU8;
 
 use chrono::{Datelike, NaiveDate, Offset, TimeZone, Timelike};
 
-use crate::{DateComplete, DateTime, Time, TzOffset, GetTimezone};
-use crate::level1::packed::{Certainty, PackedYear, PackedU8, PackedInt};
+use crate::level_1::packed::{Certainty, PackedInt, PackedU8, PackedYear};
+use crate::{DateComplete, DateTime, GetTimezone, Time, TzOffset};
 
 /// This implementation maps to an EDTF timestamp without any timezone information attached.
 impl GetTimezone for chrono::NaiveDate {

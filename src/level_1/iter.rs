@@ -663,17 +663,11 @@ impl IntervalPrecision {
 }
 
 impl Date {
-    fn max_interval_precision_certain(&self) -> Option<IntervalPrecision> {
-        if self.certainty != Certainty::Certain {
-            return None;
-        }
+    fn max_interval_precision(&self) -> Option<IntervalPrecision> {
         let (y, yflags) = self.year.unpack();
-        if yflags.certainty != Certainty::Certain {
-            return None;
-        }
         if let Some(m) = self.month {
             let (mu8, flags) = m.unpack();
-            if flags.is_masked() || flags.certainty != Certainty::Certain {
+            if flags.is_masked() {
                 return None;
             }
             if let Some(d) = self.day {
@@ -717,16 +711,16 @@ impl Edtf {
 
     pub fn iter_certain_best(&self) -> Option<IntervalIter> {
         let (d1, d2) = self.interval()?;
-        let d1 = d1.max_interval_precision_certain()?;
-        let d2 = d2.max_interval_precision_certain()?;
+        let d1 = d1.max_interval_precision()?;
+        let d2 = d2.max_interval_precision()?;
         let disc = d1.lowest_common_precision(d2);
         d1.round_with(d2, disc)
     }
 
     fn iter_certain_precision(&self, discriminant: Discriminant) -> Option<IntervalIter> {
         let (d1, d2) = self.interval()?;
-        let d1 = d1.max_interval_precision_certain()?;
-        let d2 = d2.max_interval_precision_certain()?;
+        let d1 = d1.max_interval_precision()?;
+        let d2 = d2.max_interval_precision()?;
         d1.round_with(d2, discriminant)
     }
 

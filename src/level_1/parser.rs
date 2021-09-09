@@ -185,7 +185,7 @@ fn two_digits_maybe_mask(input: &str) -> StrResult<UnvalidatedDMEnum> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::level1::packed::{YearFlags, YearMask};
+    use crate::level_1::packed::{YearFlags, YearMask};
 
     #[test]
     fn unspecified_date() {
