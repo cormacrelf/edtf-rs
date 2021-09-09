@@ -14,8 +14,9 @@ use chrono::NaiveDate;
 pub(crate) mod common;
 pub(crate) mod helpers;
 mod level0;
-pub mod level_1;
 mod level2;
+pub mod level_1;
+use common::UnvalidatedTime;
 pub use level0::api as level_0;
 #[doc(hidden)]
 pub use level2::api as level_2;
@@ -24,8 +25,8 @@ pub use level2::api as level_2;
 #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 mod chrono_interop;
 
-use core::num::NonZeroU8;
 use core::convert::TryInto;
+use core::num::NonZeroU8;
 
 /// The error type for all the `parse` methods in this crate.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -158,11 +159,7 @@ impl fmt::Debug for DateComplete {
 }
 impl fmt::Display for DateComplete {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let DateComplete {
-            year,
-            month,
-            day,
-        } = *self;
+        let DateComplete { year, month, day } = *self;
         let sign = helpers::sign_str_if_neg(year);
         let year = year.abs();
         write!(f, "{}{:04}", sign, year)?;
@@ -207,6 +204,26 @@ pub struct Time {
 }
 
 impl Time {
+    pub fn from_hmsz(hh: u32, mm: u32, ss: u32, tz: Option<TzOffset>) -> Self {
+        Self::from_hmsz_opt(hh, mm, ss, tz).expect("out of range in Time::from_hmsz")
+    }
+    pub fn from_hmsz_opt(hh: u32, mm: u32, ss: u32, tz: Option<TzOffset>) -> Option<Self> {
+        let unval = UnvalidatedTime {
+            hh: hh.try_into().ok()?,
+            mm: mm.try_into().ok()?,
+            ss: ss.try_into().ok()?,
+            tz: None,
+        };
+        let mut time = unval.validate().ok()?;
+        let tz = tz.and_then(|tz| match tz {
+            TzOffset::Hours(x) if x < 24 => Some(tz),
+            TzOffset::Minutes(x) if x < 24 * 60 => Some(tz),
+            TzOffset::Utc => Some(tz),
+            _ => None,
+        });
+        time.tz = tz;
+        Some(time)
+    }
     /// 0..=23
     pub fn hour(&self) -> u32 {
         self.hh as u32
@@ -267,4 +284,3 @@ pub trait GetTimezone {
     /// - `Some(TzOffset::Minutes(-16_200))` represents `-04:30`
     fn tz_offset(&self) -> Option<TzOffset>;
 }
-

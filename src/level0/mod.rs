@@ -71,7 +71,7 @@ impl UnvalidatedTz {
 }
 
 impl UnvalidatedTime {
-    fn validate(self) -> Result<Time, ParseError> {
+    pub(crate) fn validate(self) -> Result<Time, ParseError> {
         let Self { hh, mm, ss, tz } = self;
         let tz = tz.map(|x| x.validate()).transpose()?;
         // - ISO 8601 only allows 24 as an 'end of day' or such like when used in an interval (e.g.

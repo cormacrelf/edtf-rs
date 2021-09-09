@@ -97,20 +97,66 @@ match edtf {
 
 #### Level 1
 
+Edtf is an enum, but there are a fair few variants to avoid representing
+invalid values and the data is packed. Use `edtf.as_matcher()` to get a
+convenient representation.
+
 ```rust
-use edtf::level_1::{Edtf, Certainty, Precision};
-let edtf = Edtf::parse("2019-01-XX~/2020-XX").unwrap();
-match edtf {
-    Edtf::Date(d) => println!("date: {}", d),
-    Edtf::Interval(from, to) => {
-        println!("interval: {} to {}", from, to);
-        println!("interval: {:?} to {:?}", from.as_matcher(), to.as_matcher());
-        assert_eq!(from.as_matcher(), (Precision::DayOfMonth(2019, 01), Certainty::Approximate));
-        assert_eq!(to.as_matcher(), (Precision::MonthOfYear(2020), Certainty::Certain));
+use edtf::level_1::{Date, Edtf, Matcher, Certainty, Precision, Terminal};
+use edtf::{DateTime, Time, DateComplete, TzOffset};
+
+let edtf = Edtf::parse("2021-07-15");
+assert_eq!(edtf, Ok(Edtf::Date(Date::from_ymd(2021, 07, 15))));
+
+let edtf = Edtf::parse("2019-01-XX?").unwrap();
+match edtf.as_matcher() {
+    Matcher::Date(precision, certainty) => {
+        // precision deconstructs a date into variants like
+        // 2019, 2019-01, 2019-01-01, 20XX, 201X, 2019-XX, 2019-01-XX, 2019-XX-XX.
+        // certainty is the ? (Uncertain) / ~ (Approximate) / % (Both) value.
+
+        // You can get this same info through
+        // `Date::precision(&self) -> (Precision, Certainty)`
+        assert_eq!(precision, Precision::DayOfMonth(2019, 01));
+        assert_eq!(certainty, Certainty::Uncertain);
     }
-    Edtf::DateTime(dt) => println!("datetime: {}", dt),
+    _ => panic!("not matched")
+}
+
+let edtf = Edtf::parse("2019-XX/..").unwrap();
+match edtf.as_matcher() {
+    Matcher::Interval(from, to) => {
+        match from {
+            Terminal::Fixed(precision, certainty) => {
+                assert_eq!(precision, Precision::MonthOfYear(2019));
+                assert_eq!(certainty, Certainty::Certain);
+            }
+            Terminal::Open | Terminal::Unknown => panic!("not matched"),
+        }
+        assert_eq!(to, Terminal::Open);
+    }
     _ => panic!("not matched"),
 }
+
+let edtf = Edtf::parse("Y-12000").unwrap();
+match edtf.as_matcher() {
+    Matcher::Scientific(-12000) => {},
+    _ => panic!("not matched"),
+}
+
+let edtf = Edtf::parse("2012-11-30T12:04:56Z").unwrap();
+match edtf.as_matcher() {
+    Matcher::DateTime(dt) => {
+        assert_eq!(dt.date(), DateComplete::from_ymd(2012, 11, 30));
+        assert_eq!(dt.time(), Time::from_hmsz(12, 04, 56, Some(TzOffset::Utc)));
+    },
+    _ => panic!("not matched"),
+}
+
+// Edtf's parsing + Display implementation is lossless, so you can render back
+// out the same string.
+let string = "2019-01-XX~/2020-XX";
+assert_eq!(Edtf::parse(string).unwrap().to_string(), string);
 ```
 
 License: MPL-2.0

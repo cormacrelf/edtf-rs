@@ -2,35 +2,6 @@ use super::*;
 use crate::DateComplete;
 use core::num::NonZeroU8;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct Interval {
-    from: Precision,
-    from_certainty: Certainty,
-    to: Precision,
-    to_certainty: Certainty,
-}
-
-impl Interval {
-    // fn iter_ignore_certainty(&self) -> Option<IntervalIter> {
-    //     IntervalIter {
-    //         from: self.from,
-    //         to: self.to,
-    //     }
-    // }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum IterDate {
-    Century(i32),
-    Decade(i32),
-    Year(i32),
-    Season(i32, Season),
-    Month(i32, u32),
-    Day(i32, u32, u32),
-}
-
-// trait Sealed {}
-
 trait Incrementable: Copy {
     type Input;
     type Storage: Copy + PartialOrd;

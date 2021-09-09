@@ -18,12 +18,13 @@ mod test;
 use core::convert::TryInto;
 use core::fmt;
 use core::str::FromStr;
+use std::num::NonZeroU8;
 
 use crate::helpers;
 use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
 
 use self::{
-    packed::{DMMask, PackedInt, PackedU8, PackedYear, YearFlags, YearMask},
+    packed::{DMMask, PackedInt, PackedU8, PackedYear, YearMask},
     parser::{ParsedEdtf, UnvalidatedDate},
 };
 
@@ -117,9 +118,9 @@ pub enum Terminal {
 ///     // 18XX/20XX
 ///     Matcher::Interval(Terminal::Fixed(Precision::Century(1800), Certain), Terminal::Fixed(Precision::Century(2000), Certain)) => false,
 ///     // 199X
-///     Matcher::Single(Precision::Decade(1990), Certain) => false,
+///     Matcher::Date(Precision::Decade(1990), Certain) => false,
 ///     // 2003%
-///     Matcher::Single(Precision::Year(y), ApproximateUncertain) => false,
+///     Matcher::Date(Precision::Year(y), ApproximateUncertain) => false,
 ///     Matcher::Interval(Terminal::Unknown, Terminal::Unknown) |
 ///     Matcher::Interval(Terminal::Open, Terminal::Open) |
 ///     Matcher::Interval(Terminal::Open, Terminal::Unknown) |
@@ -131,8 +132,8 @@ pub enum Terminal {
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Matcher {
-    Single(Precision, Certainty),
-    WithTime(DateTime),
+    Date(Precision, Certainty),
+    DateTime(DateTime),
     Scientific(i64),
     /// in a `Matcher` returned from [Edtf::as_matcher], one of these is guaranteed to be
     /// [Terminal::Fixed]
@@ -155,14 +156,14 @@ enum Term2 {
 ///
 /// ```
 /// use edtf::level_1::{Date, Certainty, Precision};
-/// match Date::parse("2019-04-XX").unwrap().as_matcher() {
+/// match Date::parse("2019-04-XX").unwrap().precision() {
 ///     // 2019-04-XX
-///     (Precision::DayOfMonth(year, m), Certainty::Certain) => {
+///     Precision::DayOfMonth(year, m) => {
 ///         assert_eq!(year, 2019);
 ///         assert_eq!(m, 4);
 ///     }
 ///     // 2019-XX
-///     (Precision::MonthOfYear(year), Certainty::Certain) => {
+///     Precision::MonthOfYear(year) => {
 ///         panic!("not matched");
 ///     }
 ///     // ...
@@ -283,8 +284,8 @@ impl Edtf {
     pub fn as_matcher(&self) -> Matcher {
         use self::{Matcher::*, Terminal::*};
         match self {
-            Self::Date(d) => Single(d.as_matcher().0, d.certainty()),
-            Self::DateTime(d) => WithTime(*d),
+            Self::Date(d) => Date(d.precision(), d.certainty()),
+            Self::DateTime(d) => DateTime(*d),
             Self::YYear(d) => Scientific(d.value()),
             Self::Interval(d, d2) => Interval(d.as_terminal(), d2.as_terminal()),
             Self::IntervalOpenFrom(d) => Interval(d.as_terminal(), Open),
@@ -393,11 +394,6 @@ impl Date {
         UnvalidatedDate::from_ymd(year, month, day).validate().ok()
     }
 
-    /// Returns the [Certainty] of this date.
-    pub fn certainty(&self) -> Certainty {
-        self.certainty
-    }
-
     /// Checks if a year falls inside the acceptable range of years allowed by this library.
     /// This may be a value other than `i32::MIN..=i32::MAX`. It is currently `i32::MIN >> 4 ..
     /// i32::MAX >> 4` to allow for a packed representation.
@@ -407,7 +403,8 @@ impl Date {
 
     /// ```
     /// use edtf::level_1::{Date, Certainty, Precision};
-    /// let date = Date::from_precision(Precision::Century(1900)).and_certainty(Certainty::Uncertain).to_string();
+    /// let date = Date::from_precision(Precision::Century(1900))
+    ///     .and_certainty(Certainty::Uncertain).to_string();
     /// assert_eq!(date, "19XX?");
     /// ```
     pub fn from_precision(prec: Precision) -> Self {
@@ -492,23 +489,49 @@ impl Date {
 
     /// Private.
     fn as_terminal(&self) -> Terminal {
-        let (prec, cert) = self.as_matcher();
-        Terminal::Fixed(prec, cert)
+        Terminal::Fixed(self.precision(), self.certainty())
     }
+
+    /// If the date represents a specific day, this returns a [DateComplete] for it.
+    ///
+    /// That type has more [chrono] integration.
+    pub fn complete(&self) -> Option<DateComplete> {
+        let (year, yflags) = self.year.unpack();
+        let ymask = yflags.mask;
+        let (month, mflags) = self.month?.unpack();
+        let (day, dflags) = self.day?.unpack();
+        if ymask != YearMask::None
+            || mflags.mask != DMMask::None
+            || dflags.mask != DMMask::None
+            || month > 12
+        {
+            return None;
+        }
+        Some(DateComplete {
+            year,
+            // these never fail
+            month: NonZeroU8::new(month)?,
+            day: NonZeroU8::new(day)?,
+        })
+    }
+
+    /// [Date::precision] + [Date::certainty]
+    pub fn precision_certainty(&self) -> (Precision, Certainty) {
+        (self.precision(), self.certainty())
+    }
+
+    /// Returns the [Certainty] of this date.
+    pub fn certainty(&self) -> Certainty {
+        self.certainty
+    }
+
     /// Returns an structure more suited to use with a `match` expression.
     ///
     /// The internal representation of `Date` is packed to reduce its memory footprint, hence this
     /// API.
-    pub fn as_matcher(&self) -> (Precision, Certainty) {
-        let (
-            y,
-            YearFlags {
-                // year's certainty not used in level 1
-                certainty: _,
-                mask: ym,
-            },
-        ) = self.year.unpack();
-        let certainty = self.certainty();
+    pub fn precision(&self) -> Precision {
+        let (y, yflags) = self.year.unpack();
+        let ym = yflags.mask;
         let precision = match (self.month, self.day) {
             // Only month provided. Could be a season.
             (Some(month), None) => match month.value_u32() {
@@ -540,7 +563,7 @@ impl Date {
             (None, Some(_)) => unreachable!("date should never hold a day but not a month"),
         };
 
-        (precision, certainty)
+        precision
     }
 }
 

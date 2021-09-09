@@ -209,7 +209,7 @@ fn leap_second() {
 fn match_precision() {
     let date = Date::parse("2019-09?").unwrap();
     assert_eq!(
-        date.as_matcher(),
+        date.precision_certainty(),
         (Precision::Month(2019, 9), Certainty::Uncertain)
     );
 }
@@ -217,11 +217,11 @@ fn match_precision() {
 #[test]
 fn masking_with_uncertain() {
     assert_eq!(
-        Date::parse("201X?").unwrap().as_matcher(),
+        Date::parse("201X?").unwrap().precision_certainty(),
         (Precision::Decade(2010), Certainty::Uncertain)
     );
     assert_eq!(
-        Date::parse("2019-XX?").unwrap().as_matcher(),
+        Date::parse("2019-XX?").unwrap().precision_certainty(),
         (Precision::MonthOfYear(2019), Certainty::Uncertain)
     );
 }

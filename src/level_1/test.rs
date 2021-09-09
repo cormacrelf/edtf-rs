@@ -18,7 +18,7 @@ fn uncertain_dates_packed() {
 fn xx_rightmost_only() {
     // yes
     assert_eq!(
-        Date::parse("201X").as_ref().map(Date::as_matcher),
+        Date::parse("201X").as_ref().map(Date::precision_certainty),
         Ok((Precision::Decade(2010), Certain))
     );
     assert_eq!(
@@ -191,17 +191,19 @@ fn y_year_features() {
             .unwrap()
             .as_date()
             .unwrap()
-            .as_matcher(),
+            .precision_certainty(),
         (Precision::Century(17000), Certain)
     );
     assert_eq!(
         Edtf::parse("Y17000?")
             .unwrap()
             .as_date()
-            .map(|d| d.as_matcher())
+            .map(|d| d.precision_certainty())
             .unwrap(),
         (Precision::Year(17000), Uncertain)
     );
     // ? uncertainty
     // assert_eq!(Edtf::parse("Y17000?"), Ok(Edtf::Date(Date::from_ymd(17000, 08, 16))));
 }
+
+
