@@ -98,6 +98,19 @@ match edtf {
 #### Level 1
 
 ```rust
+use edtf::level_1::{Edtf, Certainty, Precision};
+let edtf = Edtf::parse("2019-01-XX~/2020-XX").unwrap();
+match edtf {
+    Edtf::Date(d) => println!("date: {}", d),
+    Edtf::Interval(from, to) => {
+        println!("interval: {} to {}", from, to);
+        println!("interval: {:?} to {:?}", from.as_matcher(), to.as_matcher());
+        assert_eq!(from.as_matcher(), (Precision::DayOfMonth(2019, 01), Certainty::Approximate));
+        assert_eq!(to.as_matcher(), (Precision::MonthOfYear(2020), Certainty::Certain));
+    }
+    Edtf::DateTime(dt) => println!("datetime: {}", dt),
+    _ => panic!("not matched"),
+}
 ```
 
 License: MPL-2.0

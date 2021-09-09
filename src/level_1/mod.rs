@@ -108,35 +108,26 @@ pub enum Terminal {
 ///     Matcher, Terminal, Precision,
 ///     Certainty::*,
 /// };
-/// match Edtf::parse("2019/..").unwrap().as_matcher() {
+/// assert!(match Edtf::parse("2019/..").unwrap().as_matcher() {
 ///     // 2019/..
-///     Matcher::Interval(Terminal::Fixed(Precision::Year(y), Certain), Open) => {
+///     Matcher::Interval(Terminal::Fixed(Precision::Year(y), Certain), Terminal::Open) => {
 ///         assert_eq!(y, 2019);
+///         true
 ///     },
 ///     // 18XX/20XX
-///     Matcher::Interval(Terminal::Fixed(Precision::Century(1800), Certain), Terminal::Fixed(Precision::Century(2000), Certain)) => {
-///         // ...
-///     },
+///     Matcher::Interval(Terminal::Fixed(Precision::Century(1800), Certain), Terminal::Fixed(Precision::Century(2000), Certain)) => false,
 ///     // 199X
-///     Matcher::Single(Precision::Decade(1990), Certain) => {
-///         // ...
-///     },
+///     Matcher::Single(Precision::Decade(1990), Certain) => false,
 ///     // 2003%
-///     Matcher::Single(Precision::Year(y), ApproximateUncertain) => {
-///         // ...
-///     },
+///     Matcher::Single(Precision::Year(y), ApproximateUncertain) => false,
 ///     Matcher::Interval(Terminal::Unknown, Terminal::Unknown) |
 ///     Matcher::Interval(Terminal::Open, Terminal::Open) |
 ///     Matcher::Interval(Terminal::Open, Terminal::Unknown) |
-///     Matcher::Interval(Terminal::Unknown, Terminal::Open) => {
-///         unreachable!()
-///     },
+///     Matcher::Interval(Terminal::Unknown, Terminal::Open) => false,
 ///     // /2007-09-17
-///     Matcher::Interval(Unknown, Terminal::Fixed(Precision::Day(_y, _m, _d), Uncertain)) => {
-///         // ...
-///     },
+///     Matcher::Interval(Terminal::Unknown, Terminal::Fixed(Precision::Day(_y, _m, _d), Uncertain)) => false,
 ///     _ => panic!("not matched"),
-/// }
+/// });
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Matcher {
