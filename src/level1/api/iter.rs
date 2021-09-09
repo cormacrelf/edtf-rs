@@ -326,25 +326,30 @@ macro_rules! impl_iter_inner {
 }
 
 impl_iter_inner! {
-    /// Iterate all centuries that have any part of them included in the date range.
+    /// Iterate all centuries that have any part of them included in the date range. See
+    /// [Edtf::iter_centuries]
     pub struct CenturyIter(IncrementIter<Century>, type Item = i32; );
 }
 impl_iter_inner! {
-    /// Iterate all decades that have any part of them included in the date range.
+    /// Iterate all decades that have any part of them included in the date range. See
+    /// [Edtf::iter_decades]
     pub struct DecadeIter(IncrementIter<Decade>, type Item = i32; );
 }
 impl_iter_inner! {
     /// Iterate all years that have any part of them included in the date range.
+    /// See [Edtf::iter_years]
     pub struct YearIter(IncrementIter<Year>, type Item = i32; );
 }
 impl_iter_inner! {
     /// Iterate all year-months that have any part of them included in the date range.
+    /// See [Edtf::iter_months]
     ///
     /// For example, `2019-11-30/2020-01` produces `[2019-11, 2019-12, 2020-01]`.
     pub struct YearMonthIter(IncrementIter<YearMonth>, type Item = (i32, u32); );
 }
 impl_iter_inner! {
     /// Iterate all days in the range.
+    /// See [Edtf::iter_days]
     pub struct YearMonthDayIter(IncrementIter<YearMonthDay>, type Item = DateComplete; );
 }
 
@@ -725,35 +730,35 @@ impl Edtf {
         d1.round_with(d2, discriminant)
     }
 
-    pub fn iter_century(&self) -> Option<CenturyIter> {
+    pub fn iter_centuries(&self) -> Option<CenturyIter> {
         match self.iter_certain_precision(Discriminant::Century)? {
             IntervalIter::Century(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn iter_decade(&self) -> Option<DecadeIter> {
+    pub fn iter_decades(&self) -> Option<DecadeIter> {
         match self.iter_certain_precision(Discriminant::Decade)? {
             IntervalIter::Decade(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn iter_year(&self) -> Option<YearIter> {
+    pub fn iter_years(&self) -> Option<YearIter> {
         match self.iter_certain_precision(Discriminant::Year)? {
             IntervalIter::Year(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn iter_month(&self) -> Option<YearMonthIter> {
+    pub fn iter_months(&self) -> Option<YearMonthIter> {
         match self.iter_certain_precision(Discriminant::Month)? {
             IntervalIter::Month(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn iter_day(&self) -> Option<YearMonthDayIter> {
+    pub fn iter_days(&self) -> Option<YearMonthDayIter> {
         match self.iter_certain_precision(Discriminant::Day)? {
             IntervalIter::Day(c) => Some(c),
             _ => None,
@@ -764,11 +769,11 @@ impl Edtf {
 #[test]
 fn test_iter_century() {
     let edtf = Edtf::parse("2021-06-28/2021-07-03").unwrap();
-    let iter = edtf.iter_century().expect("couldn't make the iterator");
+    let iter = edtf.iter_centuries().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![2000]);
     let edtf = Edtf::parse("1783-06-28/2021-07-03").unwrap();
-    let iter = edtf.iter_century().expect("couldn't make the iterator");
+    let iter = edtf.iter_centuries().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1700, 1800, 1900, 2000]);
 }
@@ -776,12 +781,12 @@ fn test_iter_century() {
 #[test]
 fn test_iter_century_rev() {
     let edtf = Edtf::parse("2021-06-28/2021-07-03").unwrap();
-    let iter = edtf.iter_century().expect("couldn't make the iterator");
+    let iter = edtf.iter_centuries().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![2000]);
     let edtf = Edtf::parse("1783-06-28/2021-07-03").unwrap();
-    let iter = edtf.iter_century().expect("couldn't make the iterator");
+    let iter = edtf.iter_centuries().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![2000, 1900, 1800, 1700]);
@@ -790,11 +795,11 @@ fn test_iter_century_rev() {
 #[test]
 fn test_iter_decade() {
     let edtf = Edtf::parse("1783-06-28/1789-07-03").unwrap();
-    let iter = edtf.iter_decade().expect("couldn't make the iterator");
+    let iter = edtf.iter_decades().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1780]);
     let edtf = Edtf::parse("1783-06-28/1809-07-03").unwrap();
-    let iter = edtf.iter_decade().expect("couldn't make the iterator");
+    let iter = edtf.iter_decades().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1780, 1790, 1800]);
 }
@@ -802,12 +807,12 @@ fn test_iter_decade() {
 #[test]
 fn test_iter_decade_rev() {
     let edtf = Edtf::parse("1783-06-28/1789-07-03").unwrap();
-    let iter = edtf.iter_decade().expect("couldn't make the iterator");
+    let iter = edtf.iter_decades().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1780]);
     let edtf = Edtf::parse("1783-06-28/1809-07-03").unwrap();
-    let iter = edtf.iter_decade().expect("couldn't make the iterator");
+    let iter = edtf.iter_decades().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1800, 1790, 1780]);
@@ -816,11 +821,11 @@ fn test_iter_decade_rev() {
 #[test]
 fn test_iter_year() {
     let edtf = Edtf::parse("1783-06-28/1783-07-03").unwrap();
-    let iter = edtf.iter_year().expect("couldn't make the iterator");
+    let iter = edtf.iter_years().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1783]);
     let edtf = Edtf::parse("1783-06-28/1789-07-03").unwrap();
-    let iter = edtf.iter_year().expect("couldn't make the iterator");
+    let iter = edtf.iter_years().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1783, 1784, 1785, 1786, 1787, 1788, 1789]);
 }
@@ -828,12 +833,12 @@ fn test_iter_year() {
 #[test]
 fn test_iter_year_rev() {
     let edtf = Edtf::parse("1783-06-28/1783-07-03").unwrap();
-    let iter = edtf.iter_year().expect("couldn't make the iterator");
+    let iter = edtf.iter_years().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1783]);
     let edtf = Edtf::parse("1783-06-28/1789-07-03").unwrap();
-    let iter = edtf.iter_year().expect("couldn't make the iterator");
+    let iter = edtf.iter_years().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![1789, 1788, 1787, 1786, 1785, 1784, 1783]);
@@ -842,11 +847,11 @@ fn test_iter_year_rev() {
 #[test]
 fn test_iter_year_month() {
     let edtf = Edtf::parse("1783-06-28/1783-07-03").unwrap();
-    let iter = edtf.iter_month().expect("couldn't make the iterator");
+    let iter = edtf.iter_months().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![(1783, 6), (1783, 7)]);
     let edtf = Edtf::parse("1783-11-28/1784-01-03").unwrap();
-    let iter = edtf.iter_month().expect("couldn't make the iterator");
+    let iter = edtf.iter_months().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![(1783, 11), (1783, 12), (1784, 1)]);
 }
@@ -854,7 +859,7 @@ fn test_iter_year_month() {
 #[test]
 fn test_iter_year_month_rev() {
     let edtf = Edtf::parse("1783-06/1783-09").unwrap();
-    let iter = edtf.iter_month().expect("couldn't make the iterator");
+    let iter = edtf.iter_months().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(years, vec![(1783, 9), (1783, 8), (1783, 7), (1783, 6)]);
@@ -863,7 +868,7 @@ fn test_iter_year_month_rev() {
 #[test]
 fn test_iter_ymd() {
     let edtf = Edtf::parse("1783-06-28/1783-07-03").unwrap();
-    let iter = edtf.iter_day().expect("couldn't make the iterator");
+    let iter = edtf.iter_days().expect("couldn't make the iterator");
     let years = iter.collect_with(Vec::new());
     assert_eq!(
         years,
@@ -881,7 +886,7 @@ fn test_iter_ymd() {
 #[test]
 fn test_iter_ymd_rev() {
     let edtf = Edtf::parse("1783-06-28/1783-07-03").unwrap();
-    let iter = edtf.iter_day().expect("couldn't make the iterator");
+    let iter = edtf.iter_days().expect("couldn't make the iterator");
     let iter = iter.rev();
     let years = iter.collect_with(Vec::new());
     assert_eq!(
@@ -900,7 +905,7 @@ fn test_iter_ymd_rev() {
 #[test]
 fn test_iter_year_month_rev_rev() {
     let edtf = Edtf::parse("1783-06/1783-09").unwrap();
-    let mut iter = edtf.iter_month().expect("couldn't make the iterator");
+    let mut iter = edtf.iter_months().expect("couldn't make the iterator");
 
     let rr = iter.clone().rev().rev();
     let years = rr.collect_with(Vec::new());
