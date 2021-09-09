@@ -55,6 +55,11 @@ impl fmt::Display for ParseError {
 /// Prefer to use its implementation of [chrono::Datelike] and [chrono::Timelike] or simply the
 /// [DateTime::to_chrono] method to use a specific [chrono::TimeZone], all available with `features
 /// = ["chrono"]`.
+///
+/// Also, its Display implementation is geared towards lossless EDTF parse-format roundtrips. It
+/// does not always produce valid RFC3339 timestamps, in particular [TzOffset::Hours] is rendered
+/// as `+04` instead of `+04:00`. This is best considered a problem with the EDTF specification for
+/// allowing a useless extra timestamp format.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct DateTime {
     pub(crate) date: DateComplete,
@@ -260,7 +265,12 @@ pub enum TzOffset {
     /// `Z`
     Utc,
     /// `+04`
-    /// A number of hours only
+    /// A number of hours only. Not RFC3339-compliant.
+    ///
+    /// In order to provide lossless parse-format roundtrips,  this will be formatted without the
+    /// `:00`, so if you want timestamps to be RFC3339-compliant, do not use this. Because of this,
+    /// you may wish to use the `chrono` interop to format an RFC3339 timestamp instead of the
+    /// Display implementation on [DateTime].
     Hours(i32),
     /// `+04:30`
     /// A number of minutes offset from UTC.
