@@ -4,7 +4,11 @@
 //
 // Copyright © 2021 Corporation for Digital Scholarship
 
-trait Incrementable: Copy {
+use core::num::NonZeroU8;
+use crate::DateComplete;
+use std::convert::TryInto;
+
+pub(crate) trait Incrementable: Copy {
     type Input;
     type Storage: Copy + PartialOrd;
     type Output;
@@ -13,11 +17,11 @@ trait Incrementable: Copy {
     fn output(storage: Self::Storage) -> Option<Self::Output>;
 }
 
-trait Decrementable: Incrementable {
+pub(crate) trait Decrementable: Incrementable {
     fn decrement(storage: Self::Storage) -> Option<Self::Storage>;
 }
 
-trait Cyclic: Copy {
+pub(crate) trait Cyclic: Copy {
     type Input;
     type Storage: Copy + PartialOrd;
     type Output;
@@ -109,7 +113,7 @@ macro_rules! cyclic {
 }
 
 incrementable! {
-    struct Century::<i32, i32, i32>(
+    pub(crate) struct Century::<i32, i32, i32>(
         |input| input,
         |century: i32| century.checked_add(100),
         |century: i32| century.checked_sub(100),
@@ -117,11 +121,11 @@ incrementable! {
     )
 }
 
-incrementable! { struct Year::<i32>(|y: i32| y.checked_add(1), |y: i32| y.checked_sub(1)) }
+incrementable! { pub(crate) struct Year::<i32>(|y: i32| y.checked_add(1), |y: i32| y.checked_sub(1)) }
 
-incrementable! { struct Decade::<i32>(|dec: i32| dec.checked_add(10), |dec: i32| dec.checked_sub(10)) }
+incrementable! { pub(crate) struct Decade::<i32>(|dec: i32| dec.checked_add(10), |dec: i32| dec.checked_sub(10)) }
 cyclic! {
-    struct Month::<u32>(
+    pub(crate) struct Month::<u32>(
         |m| if m >= 12 {
             Err(1u32)
         } else {
@@ -137,7 +141,7 @@ cyclic! {
 use crate::common::MONTH_DAYCOUNT;
 use crate::common::MONTH_DAYCOUNT_LEAP;
 cyclic! {
-    struct DayOfMax::<(u32, u32), (u32, u32), u32>(
+    pub(crate) struct DayOfMax::<(u32, u32), (u32, u32), u32>(
         |x| x,
         |(dmax, day)| {
             if day >= dmax {
@@ -159,7 +163,7 @@ cyclic! {
 }
 
 incrementable! {
-    struct YearMonthDay::<(i32, u32, u32), (i32, bool, u32, u32), DateComplete>(
+    pub(crate) struct YearMonthDay::<(i32, u32, u32), (i32, bool, u32, u32), DateComplete>(
         |(y, m, d)| (y, crate::common::is_leap_year(y), m, d),
         |(year, leap, month, day)| {
             let lut = if leap { MONTH_DAYCOUNT_LEAP } else { MONTH_DAYCOUNT };
@@ -210,7 +214,7 @@ incrementable! {
 }
 
 incrementable! {
-    struct YearMonth::<(i32, u32)>(
+    pub(crate) struct YearMonth::<(i32, u32)>(
         |(year, month)| {
             let x = match Month::incr_map(month) {
                 Ok(next_month) => (year, next_month),
