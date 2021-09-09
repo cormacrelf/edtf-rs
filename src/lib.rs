@@ -6,18 +6,10 @@
 
 #![allow(dead_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc = include_str!("../README.md")]
 
 #[cfg(all(doc, feature = "chrono"))]
 use chrono::NaiveDate;
-
-// apparently #[doc = $expr] will be released on stable soon. But, not yet.
-// #![cfg_attr(docsrs, doc = include_str!("../README.md"))]
-// so this just tests the code examples in the README
-#[cfg(doctest)]
-#[macro_use]
-extern crate doc_comment;
-#[cfg(doctest)]
-doctest!("../README.md");
 
 pub(crate) mod common;
 pub(crate) mod helpers;
@@ -87,17 +79,20 @@ impl DateTime {
     pub fn time(&self) -> Time {
         self.time
     }
+
+    #[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
     /// Get the `TzOffset`. If `None` is returned, this represents a timestamp which did not
     /// specify a timezone.
     ///
-    /// If using the `chrono` interop, None means you should attempt to convert to a chrono::[NaiveDate]
+    /// If using the `chrono` interop, None means you should attempt to convert to a [chrono::NaiveDate]
     pub fn offset(&self) -> Option<TzOffset> {
         self.time.offset()
     }
 
     #[cfg(feature = "chrono")]
     #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
-    /// Convert to a chrono::[NaiveDate]
+    #[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
+    /// Convert to a [chrono::NaiveDate]
     pub fn to_chrono_naive(&self) -> chrono::NaiveDateTime {
         let date = self.date.to_chrono();
         let time = self.time.to_chrono_naive();
@@ -224,6 +219,7 @@ impl Time {
     pub fn second(&self) -> u32 {
         self.ss as u32
     }
+    #[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
     /// Get the `TzOffset`. If `None` is returned, this represents a timestamp which did not
     /// specify a timezone.
     ///
@@ -238,6 +234,7 @@ impl Time {
     }
 }
 
+#[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
 /// If `features = ["chrono"]` is enabled, then this can act as a [chrono::TimeZone]. This can be
 /// used to preserve the level of TZ brevity i.e. `TzOffset::Hours(_)` ends up as `+04` instead of
 /// `+04:00`.
@@ -253,7 +250,7 @@ pub enum TzOffset {
     Minutes(i32),
 }
 
-#[allow(rustdoc::broken_intra_doc_links)]
+#[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
 /// A helper trait for getting timezone information from some value. (Especially [chrono::DateTime]
 /// or [chrono::NaiveDateTime].)
 ///
