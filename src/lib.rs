@@ -257,6 +257,8 @@ impl Time {
 }
 
 #[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
+/// A parsed EDTF timezone.
+///
 /// If `features = ["chrono"]` is enabled, then this can act as a [chrono::TimeZone]. This can be
 /// used to preserve the level of TZ brevity i.e. `TzOffset::Hours(_)` ends up as `+04` instead of
 /// `+04:00`.

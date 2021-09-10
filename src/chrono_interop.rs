@@ -98,6 +98,7 @@ impl DateTime {
 }
 
 impl DateComplete {
+    /// Converts self to a [chrono::NaiveDate]
     pub fn to_chrono(&self) -> NaiveDate {
         NaiveDate::from_ymd(self.year, self.month.get() as u32, self.day.get() as u32)
     }
