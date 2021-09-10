@@ -148,7 +148,7 @@ let edtf = Edtf::parse("2012-11-30T12:04:56Z").unwrap();
 match edtf.as_matcher() {
     Matcher::DateTime(dt) => {
         assert_eq!(dt.date(), DateComplete::from_ymd(2012, 11, 30));
-        assert_eq!(dt.time(), Time::from_hmsz(12, 04, 56, Some(TzOffset::Utc)));
+        assert_eq!(dt.time(), Time::from_hmsz(12, 04, 56, TzOffset::Utc));
     },
     _ => panic!("not matched"),
 }
