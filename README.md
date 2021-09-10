@@ -22,7 +22,8 @@ edtf = "0.1.1"
   the types make it impossible to construct an invalid `Edtf` object, down to the
   leap year.
 - Integration with the widely used [chrono](https://lib.rs/chrono) crate via
-  the optional `features = ["chrono"]`.
+  the optional `features = ["chrono"]`. Similarly, provides optional
+  [serde](https://lib.rs/serde) implementations under the `serde` feature.
 - Three implementations, not one, so you can pick your compatibility level.
 
 ### Notes on EDTF and the ISO 8601 calendar system

@@ -28,6 +28,10 @@ pub use level2::api as level_2;
 #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 mod chrono_interop;
 
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+mod serde_interop;
+
 use core::convert::TryInto;
 use core::num::NonZeroU8;
 

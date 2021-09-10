@@ -30,7 +30,12 @@ version = "0.4"
 default-features = false
 optional = true
 
+[dependencies.serde]
+version = "1"
+optional = true
+
 [dev-dependencies]
 no-panic = "0.1.15"
+serde_test = "1"
 
 
