@@ -21,10 +21,10 @@ fn days_in_month(y: i32, m: u8) -> u8 {
 }
 
 impl Date {
-    fn iter_start(&self, min_level: IterLevel) -> Option<Self> {
+    fn iter_start(&self, min_level: StepSize) -> Option<Self> {
         self.trunc_for_iter(1, |_, _| 1, 1, min_level)
     }
-    fn iter_end(&self, min_level: IterLevel) -> Option<Self> {
+    fn iter_end(&self, min_level: StepSize) -> Option<Self> {
         self.trunc_for_iter(12, days_in_month, 31, min_level)
     }
     fn trunc_for_iter(
@@ -32,14 +32,14 @@ impl Date {
         cap_month: u8,
         mday: fn(i32, u8) -> u8,
         cap_day: u8,
-        min_level: IterLevel,
+        min_level: StepSize,
     ) -> Option<Self> {
         let (y, _) = self.year.unpack();
         let mut new = self.clone();
         if let Some(month) = self.month {
             let (m, mflags) = month.unpack();
             match self.day {
-                Some(day) if min_level <= IterLevel::Day => {
+                Some(day) if min_level <= StepSize::Day => {
                     let (_, dflags) = day.unpack();
                     match (mflags.mask, dflags.mask) {
                         (DMMask::None, DMMask::Unspecified) => {
@@ -61,7 +61,7 @@ impl Date {
                         _ => {}
                     }
                 }
-                None if min_level <= IterLevel::Month => {
+                None if min_level <= StepSize::Month => {
                     if mflags.mask == DMMask::Unspecified {
                         new.month =
                             PackedU8::pack(cap_month, DMFlags::new(mflags.certainty, DMMask::None));
@@ -71,7 +71,7 @@ impl Date {
                 // this means e.g. 2021-08-08.iter_possible_months returns None
                 _ => return None,
             }
-        } else if min_level <= IterLevel::Month {
+        } else if min_level <= StepSize::Month {
             return None;
         }
         return Some(new);
@@ -81,25 +81,25 @@ impl Date {
     // if e.g. 2021-05-XX, it iterates through all the days in May 2021. 2021-XX-XX iterates
     // through 365 days.
     pub fn iter_possible_days(&self) -> Option<YearMonthDayIter> {
-        let start = self.iter_start(IterLevel::Day)?;
-        let end = self.iter_end(IterLevel::Day)?;
+        let start = self.iter_start(StepSize::Day)?;
+        let end = self.iter_end(StepSize::Day)?;
         Edtf::Interval(start, end).iter_days()
     }
 
     pub fn iter_forward_days(&self) -> Option<YearMonthDayIter> {
-        let d = self.iter_start(IterLevel::Day)?.complete()?;
+        let d = self.iter_start(StepSize::Day)?.complete()?;
         let ymd = (d.year(), d.month(), d.day());
         Some(YearMonthDayIter(IncrementIter::raw(Some(ymd), None)))
     }
 
     pub fn iter_possible_months(&self) -> Option<YearMonthIter> {
-        let start = self.iter_start(IterLevel::Month)?;
-        let end = self.iter_end(IterLevel::Month)?;
+        let start = self.iter_start(StepSize::Month)?;
+        let end = self.iter_end(StepSize::Month)?;
         Edtf::Interval(start, end).iter_months()
     }
 
     pub fn iter_forward_months(&self) -> Option<YearMonthIter> {
-        let start = match self.iter_start(IterLevel::Month)?.precision() {
+        let start = match self.iter_start(StepSize::Month)?.precision() {
             Precision::Month(y, m) => (y, m),
             _ => return None,
         };

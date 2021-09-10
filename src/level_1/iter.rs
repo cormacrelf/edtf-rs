@@ -310,7 +310,7 @@ pub enum SmallestStep {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum IterLevel {
+enum StepSize {
     Day,
     Month,
     Season,
@@ -330,17 +330,17 @@ enum IntervalPrecision {
 }
 
 impl IntervalPrecision {
-    fn discriminant(&self) -> IterLevel {
+    fn discriminant(&self) -> StepSize {
         match self {
-            Self::Day(..) => IterLevel::Day,
-            Self::Month(..) => IterLevel::Month,
-            Self::Season(..) => IterLevel::Season,
-            Self::Year(..) => IterLevel::Year,
-            Self::Decade(..) => IterLevel::Decade,
-            Self::Century(..) => IterLevel::Century,
+            Self::Day(..) => StepSize::Day,
+            Self::Month(..) => StepSize::Month,
+            Self::Season(..) => StepSize::Season,
+            Self::Year(..) => StepSize::Year,
+            Self::Decade(..) => StepSize::Decade,
+            Self::Century(..) => StepSize::Century,
         }
     }
-    fn lowest_common_precision(self, other: Self) -> IterLevel {
+    fn lowest_common_precision(self, other: Self) -> StepSize {
         self.discriminant().max(other.discriminant())
     }
     fn year(&self) -> i32 {
@@ -389,19 +389,19 @@ impl IntervalPrecision {
     //     })
     // }
 
-    fn round_with(self, other: Self, discriminant: IterLevel) -> Option<SmallestStep> {
+    fn round_with(self, other: Self, discriminant: StepSize) -> Option<SmallestStep> {
         let sy = self.year();
         let oy = other.year();
 
         Some(match discriminant {
-            IterLevel::Century => SmallestStep::Century(CenturyIter::new(sy..=oy)),
-            IterLevel::Decade => SmallestStep::Decade(DecadeIter::new(sy..=oy)),
-            IterLevel::Year => SmallestStep::Year(YearIter::new(sy..=oy)),
-            IterLevel::Month => SmallestStep::Month(YearMonthIter::new(
+            StepSize::Century => SmallestStep::Century(CenturyIter::new(sy..=oy)),
+            StepSize::Decade => SmallestStep::Decade(DecadeIter::new(sy..=oy)),
+            StepSize::Year => SmallestStep::Year(YearIter::new(sy..=oy)),
+            StepSize::Month => SmallestStep::Month(YearMonthIter::new(
                 (sy, self.month()? as u32)..=(oy, other.month()? as u32),
             )),
-            IterLevel::Day => SmallestStep::Day(YearMonthDayIter::new(self.ymd()?..=other.ymd()?)),
-            IterLevel::Season => todo!("season iteration not implemented"),
+            StepSize::Day => SmallestStep::Day(YearMonthDayIter::new(self.ymd()?..=other.ymd()?)),
+            StepSize::Season => todo!("season iteration not implemented"),
         })
     }
 }
@@ -464,43 +464,43 @@ impl Edtf {
         d1.round_with(d2, disc)
     }
 
-    fn iter_precision(&self, discriminant: IterLevel) -> Option<SmallestStep> {
+    fn iter_at(&self, level: StepSize) -> Option<SmallestStep> {
         let (d1, d2) = self.interval()?;
         let d1 = d1.max_interval_precision()?;
         let d2 = d2.max_interval_precision()?;
-        d1.round_with(d2, discriminant)
+        d1.round_with(d2, level)
     }
 
     pub fn iter_centuries(&self) -> Option<CenturyIter> {
-        match self.iter_precision(IterLevel::Century)? {
+        match self.iter_at(StepSize::Century)? {
             SmallestStep::Century(c) => Some(c),
             _ => None,
         }
     }
 
     pub fn iter_decades(&self) -> Option<DecadeIter> {
-        match self.iter_precision(IterLevel::Decade)? {
+        match self.iter_at(StepSize::Decade)? {
             SmallestStep::Decade(c) => Some(c),
             _ => None,
         }
     }
 
     pub fn iter_years(&self) -> Option<YearIter> {
-        match self.iter_precision(IterLevel::Year)? {
+        match self.iter_at(StepSize::Year)? {
             SmallestStep::Year(c) => Some(c),
             _ => None,
         }
     }
 
     pub fn iter_months(&self) -> Option<YearMonthIter> {
-        match self.iter_precision(IterLevel::Month)? {
+        match self.iter_at(StepSize::Month)? {
             SmallestStep::Month(c) => Some(c),
             _ => None,
         }
     }
 
     pub fn iter_days(&self) -> Option<YearMonthDayIter> {
-        match self.iter_precision(IterLevel::Day)? {
+        match self.iter_at(StepSize::Day)? {
             SmallestStep::Day(c) => Some(c),
             _ => None,
         }
