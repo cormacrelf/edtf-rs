@@ -1,0 +1,17 @@
+# to release:
+# cargo install cargo-release
+# cargo release patch (or minor, major, alpha, beta, rc, vX.X.X)
+
+# this is run after pre-release-replacements
+# this script will prepend using conventional-commits to CHANGELOG.md
+pre-release-hook = [ "./pre-release.sh" ]
+
+# pass --all-features through to `cargo publish` for its pre-flight validation
+enable-all-features = true
+
+[[pre-release-replacements]]
+file="README.md"
+search="edtf = \"\\d.*"
+max = 1
+replace="{{crate_name}} = \"{{version}}\""
+
