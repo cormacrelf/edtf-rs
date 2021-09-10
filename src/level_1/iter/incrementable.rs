@@ -4,8 +4,8 @@
 //
 // Copyright © 2021 Corporation for Digital Scholarship
 
-use core::num::NonZeroU8;
 use crate::DateComplete;
+use core::num::NonZeroU8;
 use std::convert::TryInto;
 
 pub(crate) trait Incrementable: Copy {
@@ -237,4 +237,3 @@ incrementable! {
         }
     )
 }
-

@@ -16,7 +16,7 @@ pub(crate) mod helpers;
 mod level0;
 mod level2;
 pub mod level_1;
-use common::UnvalidatedTime;
+use common::{UnvalidatedTime, UnvalidatedTz};
 pub use level0::api as level_0;
 #[doc(hidden)]
 pub use level2::api as level_2;
@@ -91,7 +91,7 @@ impl DateTime {
     /// specify a timezone.
     ///
     /// If using the `chrono` interop, None means you should attempt to convert to a [chrono::NaiveDate]
-    pub fn offset(&self) -> Option<TzOffset> {
+    pub fn offset(&self) -> TzOffset {
         self.time.offset()
     }
 
@@ -205,27 +205,28 @@ pub struct Time {
     pub(crate) hh: u8,
     pub(crate) mm: u8,
     pub(crate) ss: u8,
-    pub(crate) tz: Option<TzOffset>,
+    pub(crate) tz: TzOffset,
 }
 
 impl Time {
-    pub fn from_hmsz(hh: u32, mm: u32, ss: u32, tz: Option<TzOffset>) -> Self {
+    pub fn from_hmsz(hh: u32, mm: u32, ss: u32, tz: TzOffset) -> Self {
         Self::from_hmsz_opt(hh, mm, ss, tz).expect("out of range in Time::from_hmsz")
     }
-    pub fn from_hmsz_opt(hh: u32, mm: u32, ss: u32, tz: Option<TzOffset>) -> Option<Self> {
+    pub fn from_hmsz_opt(hh: u32, mm: u32, ss: u32, tz: TzOffset) -> Option<Self> {
         let unval = UnvalidatedTime {
             hh: hh.try_into().ok()?,
             mm: mm.try_into().ok()?,
             ss: ss.try_into().ok()?,
-            tz: None,
+            tz: UnvalidatedTz::None,
         };
         let mut time = unval.validate().ok()?;
-        let tz = tz.and_then(|tz| match tz {
-            TzOffset::Hours(x) if x.abs() < 24 => Some(tz),
-            TzOffset::Minutes(x) if x.abs() < 24 * 60 => Some(tz),
-            TzOffset::Utc => Some(tz),
-            _ => None,
-        });
+        let tz = match tz {
+            TzOffset::None => tz,
+            TzOffset::Hours(x) if x.abs() < 24 => tz,
+            TzOffset::Minutes(x) if x.abs() < 24 * 60 => tz,
+            TzOffset::Utc => tz,
+            _ => return None,
+        };
         time.tz = tz;
         Some(time)
     }
@@ -246,7 +247,7 @@ impl Time {
     /// specify a timezone.
     ///
     /// If using the `chrono` interop, None means you should attempt to convert to a [chrono::NaiveDate]
-    pub fn offset(&self) -> Option<TzOffset> {
+    pub fn offset(&self) -> TzOffset {
         self.tz
     }
     #[cfg(feature = "chrono")]
@@ -264,6 +265,8 @@ impl Time {
 /// `+04:00`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TzOffset {
+    /// An EDTF with no timezone information at all.
+    None,
     /// `Z`
     Utc,
     /// `+04`
@@ -290,9 +293,9 @@ pub enum TzOffset {
 pub trait GetTimezone {
     /// Return the number of seconds difference from UTC.
     ///
-    /// - `None` represents NO timezone information on the EDTF timestamp.
-    /// - `Some(TzOffset::Utc)` represents a `Z` timezone, i.e. UTC/Zulu time.
-    /// - `Some(TzOffset::Hours(1))` represents `+01
-    /// - `Some(TzOffset::Minutes(-16_200))` represents `-04:30`
-    fn tz_offset(&self) -> Option<TzOffset>;
+    /// - `TzOffset::None` represents NO timezone information on the EDTF timestamp.
+    /// - `TzOffset::Utc` represents a `Z` timezone, i.e. UTC/Zulu time.
+    /// - `TzOffset::Hours(1)` represents `+01
+    /// - `TzOffset::Minutes(-16_200)` represents `-04:30`
+    fn tz_offset(&self) -> TzOffset;
 }

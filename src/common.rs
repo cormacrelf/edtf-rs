@@ -113,11 +113,12 @@ pub struct UnvalidatedTime {
     pub hh: u8,
     pub mm: u8,
     pub ss: u8,
-    pub tz: Option<UnvalidatedTz>,
+    pub tz: UnvalidatedTz,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum UnvalidatedTz {
+    None,
     Utc,
     Hours { positive: bool, hh: u8 },
     HoursMinutes { positive: bool, hh: u8, mm: u8 },
@@ -185,7 +186,12 @@ fn time(remain: &str) -> StrResult<UnvalidatedTime> {
         .and_ignore(ncc::char(':'))
         .and(two_digits::<u8>)
         .and(tz_offset.optional())
-        .map(|(((hh, mm), ss), tz)| UnvalidatedTime { hh, mm, ss, tz })
+        .map(|(((hh, mm), ss), tz)| UnvalidatedTime {
+            hh,
+            mm,
+            ss,
+            tz: tz.unwrap_or(UnvalidatedTz::None),
+        })
         .parse(remain)
 }
 

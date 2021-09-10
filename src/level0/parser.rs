@@ -138,7 +138,7 @@ mod test {
                         hh: 01,
                         mm: 47,
                         ss: 05,
-                        tz: None
+                        tz: UnvalidatedTz::None
                     },
                 )
             ))
@@ -158,7 +158,7 @@ mod test {
                         hh: 01,
                         mm: 47,
                         ss: 00,
-                        tz: Some(UnvalidatedTz::Utc)
+                        tz: UnvalidatedTz::Utc
                     },
                 )
             ))
@@ -178,11 +178,11 @@ mod test {
                         hh: 01,
                         mm: 47,
                         ss: 00,
-                        tz: Some(UnvalidatedTz::HoursMinutes {
+                        tz: UnvalidatedTz::HoursMinutes {
                             positive: true,
                             hh: 00,
                             mm: 00
-                        })
+                        }
                     },
                 )
             ))
@@ -202,11 +202,11 @@ mod test {
                         hh: 01,
                         mm: 47,
                         ss: 00,
-                        tz: Some(UnvalidatedTz::HoursMinutes {
+                        tz: UnvalidatedTz::HoursMinutes {
                             positive: false,
                             hh: 04,
                             mm: 30
-                        })
+                        }
                     },
                 )
             ))

@@ -46,6 +46,7 @@ impl DateTime {
 impl UnvalidatedTz {
     fn validate(self) -> Result<TzOffset, ParseError> {
         match self {
+            Self::None => Ok(TzOffset::None),
             Self::Utc => Ok(TzOffset::Utc),
             Self::Hours { positive, hh } => {
                 let sign = if positive { 1 } else { -1 };
@@ -73,7 +74,7 @@ impl UnvalidatedTz {
 impl UnvalidatedTime {
     pub(crate) fn validate(self) -> Result<Time, ParseError> {
         let Self { hh, mm, ss, tz } = self;
-        let tz = tz.map(|x| x.validate()).transpose()?;
+        let tz = tz.validate()?;
         // - ISO 8601 only allows 24 as an 'end of day' or such like when used in an interval (e.g.
         //   two /-separated timestamps.) EDTF doesn't allow intervals with time of day. So hours
         //   can't be 24.

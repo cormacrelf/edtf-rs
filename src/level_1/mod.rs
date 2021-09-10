@@ -647,13 +647,13 @@ impl fmt::Display for DateTime {
             year, month, day, hh, mm, ss
         )?;
         match tz {
-            None => {}
-            Some(TzOffset::Utc) => write!(f, "Z")?,
-            Some(TzOffset::Hours(h)) => {
+            TzOffset::None => {}
+            TzOffset::Utc => write!(f, "Z")?,
+            TzOffset::Hours(h) => {
                 let off_h = h % 24;
                 write!(f, "{:+03}", off_h)?;
             }
-            Some(TzOffset::Minutes(min)) => {
+            TzOffset::Minutes(min) => {
                 let off_m = (min.abs()) % 60;
                 let off_h = (min / 60) % 24;
                 write!(f, "{:+03}:{:02}", off_h, off_m)?;

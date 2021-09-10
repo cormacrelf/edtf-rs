@@ -14,30 +14,30 @@ use crate::{DateComplete, DateTime, GetTimezone, Time, TzOffset};
 
 /// This implementation maps to an EDTF timestamp without any timezone information attached.
 impl GetTimezone for chrono::NaiveDate {
-    fn tz_offset(&self) -> Option<TzOffset> {
-        None
+    fn tz_offset(&self) -> TzOffset {
+        TzOffset::None
     }
 }
 
 /// This implementation maps to an EDTF timestamp with a `Z` on the end.
 impl GetTimezone for chrono::DateTime<chrono::Utc> {
-    fn tz_offset(&self) -> Option<TzOffset> {
-        Some(TzOffset::Utc)
+    fn tz_offset(&self) -> TzOffset {
+        TzOffset::Utc
     }
 }
 
 /// This implementation maps to an EDTF timestamp with a timezone offset like `+04:00`.
 impl GetTimezone for chrono::DateTime<chrono::FixedOffset> {
-    fn tz_offset(&self) -> Option<TzOffset> {
+    fn tz_offset(&self) -> TzOffset {
         let offset = self.offset();
-        Some(TzOffset::Minutes(offset.local_minus_utc() / 60))
+        TzOffset::Minutes(offset.local_minus_utc() / 60)
     }
 }
 
 /// This implementation maps to an EDTF timestamp with a timezone offset like `+04:00`.
 impl GetTimezone for chrono::DateTime<TzOffset> {
-    fn tz_offset(&self) -> Option<TzOffset> {
-        Some(*self.offset())
+    fn tz_offset(&self) -> TzOffset {
+        *self.offset()
     }
 }
 
