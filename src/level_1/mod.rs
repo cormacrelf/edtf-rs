@@ -35,7 +35,7 @@ pub use packed::Certainty;
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
 
 /// An EDTF date. Represents a standalone date or one end of a interval.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Date {
     pub(crate) year: PackedYear,
     pub(crate) month: Option<PackedU8>,
@@ -44,7 +44,7 @@ pub struct Date {
 }
 
 /// Fully represents EDTF Level 1. The representation is lossless.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Edtf {
     /// A full timestamp. `2019-07-15T01:56:00Z`
     DateTime(DateTime),
@@ -207,7 +207,7 @@ pub enum Precision {
 /// Represents a 5+ digit, signed year like `Y12345`, `Y-17000`.
 ///
 #[doc = include_str!("YYear.md")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct YYear(i64);
 
 impl YYear {

@@ -8,7 +8,7 @@ use crate::helpers::{inside_9999, outside_9999};
 use crate::ParseError;
 
 /// A year equal to `mantissa * 10^exponent`, to a precision of `sig_digits`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ScientificYear {
     /// Includes the sign bit for convenience of representation.
     pub(crate) mantissa: i64,
@@ -17,14 +17,14 @@ pub struct ScientificYear {
 }
 
 // placeholder for the doctests below
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Edtf {
     Date(Date),
     Scientific(ScientificYear),
 }
 
 // placeholder for the doctests below
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Date {
     Placeholder,
 }

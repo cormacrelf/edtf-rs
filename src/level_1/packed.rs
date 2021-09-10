@@ -37,7 +37,7 @@ impl From<u8> for YearMask {
 
 /// Represents whether a date part is uncertain and in what way. In EDTF, this is encoded as the
 /// `?`, `~` and `%` modifiers.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Certainty {
     /// no modifier
@@ -145,7 +145,7 @@ pub(crate) trait PackedInt {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub(crate) struct PackedYear(pub(crate) i32);
 
@@ -249,7 +249,7 @@ impl From<u8> for DMFlags {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct PackedU8(NonZeroU8);
 
