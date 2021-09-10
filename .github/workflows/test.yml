@@ -9,8 +9,11 @@ on:
       - trying
   pull_request:
     paths:
+      - '.github/*'
       - '**.rs'
       - '**/Cargo.*'
+      - '.cargo/*'
+      - '**/*.md'
 
 jobs:
   test:
@@ -34,14 +37,23 @@ jobs:
           toolchain: ${{ matrix.rust }}
           default: true
       - uses: actions-rs/cargo@v1
+        name: "cargo fmt"
+        if: ${{ matrix.rust == 'stable' }}
+        with:
+          command: fmt
+          args: -- --check
+      - uses: actions-rs/cargo@v1
+        name: "test with all features"
         with:
           command: test
           args: --all-features --all-targets
       - uses: actions-rs/cargo@v1
+        name: "doctest"
         with:
           command: test
           args: --all-features --doc
       - uses: actions-rs/cargo@v1
+        name: "check with --no-default-features"
         with:
           command: check
           args: --no-default-features

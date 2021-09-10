@@ -7,7 +7,6 @@
 #![allow(dead_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-
 // use `bacon docs-rs` to review missing documentation
 #![cfg_attr(docsrs, warn(missing_docs))]
 
