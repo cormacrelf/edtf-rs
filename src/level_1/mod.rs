@@ -70,9 +70,13 @@ pub enum Edtf {
 /// A season in [Precision]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Season {
+    /// 21
     Spring = 21,
+    /// 22
     Summer = 22,
+    /// 23
     Autumn = 23,
+    /// 24
     Winter = 24,
 }
 
@@ -133,8 +137,11 @@ pub enum Terminal {
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Matcher {
+    /// The EDTF was a single date, no interval or time. Alternative: [Edtf::as_date]
     Date(Precision, Certainty),
+    /// The EDTF was a date-time stamp. Alternative: [Edtf::as_datetime]
     DateTime(DateTime),
+    /// The EDTF was a `Y12345` / `Y-12345` scientific year. [Edtf::YYear], [YYear]
     Scientific(i64),
     /// in a `Matcher` returned from [Edtf::as_matcher], one of these is guaranteed to be
     /// [Terminal::Fixed]
@@ -265,25 +272,32 @@ impl Edtf {
 
 /// ## Getting enum variants
 impl Edtf {
+    /// If self is an [Edtf::Date], return it
     pub fn as_date(&self) -> Option<Date> {
         match self {
             Self::Date(d) => Some(*d),
             _ => None,
         }
     }
-    // TODO: something like this? hm
-    // pub fn as_interval(&self) -> Option<impl RangeBounds<(Precision, Certainty)>> {
-    //     match self.as_matcher() {
-    //         Matcher::Interval(t1, c1, t2, c2) => Some((t1, c1, t2, c2)),
-    //         _ => None,
-    //     }
-    // }
+
+    /// If self is an [Edtf::DateTime], return it
     pub fn as_datetime(&self) -> Option<DateTime> {
         match self {
             Self::DateTime(d) => Some(*d),
             _ => None,
         }
     }
+
+    /// Shorthand for matching [Matcher::Interval]
+    pub fn as_interval(&self) -> Option<(Terminal, Terminal)> {
+        match self.as_matcher() {
+            Matcher::Interval(t1, t2) => Some((t1, t2)),
+            _ => None,
+        }
+    }
+
+    /// Return an enum that's easier to match against for generic intervals. See [Matcher] docs for
+    /// details.
     pub fn as_matcher(&self) -> Matcher {
         use self::{Matcher::*, Terminal::*};
         match self {
@@ -342,8 +356,8 @@ impl From<YearDigits> for YearMask {
 impl Date {
     /// Parses a Date from a string. **Note!** This is not part of the EDTF spec. It is
     /// merely a convenience, helpful for constructing proper [Edtf] values programmatically. It
-    /// does not handle any of the parts of EDTF using two dates separated by a slash, or
-    /// open/unknown ranges.
+    /// does not handle any of the parts of EDTF using two dates separated by a slash, or date
+    /// times.
     ///
     /// ```
     /// use edtf::level_1::Date;
@@ -351,15 +365,19 @@ impl Date {
     /// assert_eq!(Date::parse("2019-07"), Ok(Date::from_ymd(2019, 07, 0)));
     ///
     /// assert!(Date::parse("2019-07/2020").is_err());
+    /// assert!(Date::parse("2019-00-01").is_err());
+    /// assert!(Date::parse("2019-01-01T00:00:00Z").is_err());
     /// ```
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         Self::parse_inner(input).and_then(UnvalidatedDate::validate)
     }
 
+    /// Construct a date with no month or day components, e.g. `2021`. Panics if out of range.
     pub fn from_year(year: i32) -> Self {
         Self::from_ymd(year, 0, 0)
     }
 
+    /// Construct a date with no day component, e.g. `2021-04`. Panics if out of range.
     pub fn from_ym(year: i32, month: u32) -> Self {
         Self::from_ymd(year, month, 0)
     }
@@ -374,8 +392,6 @@ impl Date {
     /// assert_eq!(Date::parse("2019-07-09"), Ok(Date::from_ymd(2019, 07, 09)));
     /// assert_eq!(Date::parse("2019-07"), Ok(Date::from_ymd(2019, 07, 0)));
     /// assert_eq!(Date::parse("2019"), Ok(Date::from_ymd(2019, 0, 0)));
-    ///
-    /// assert!(Date::parse("2019-00-01").is_err());
     /// ```
     pub fn from_ymd(year: i32, month: u32, day: u32) -> Self {
         UnvalidatedDate::from_ymd(year, month, day)

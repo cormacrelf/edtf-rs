@@ -192,12 +192,15 @@ impl DateComplete {
         Self { year, month, day }.validate().ok()
     }
 
+    /// Gets the year
     pub fn year(&self) -> i32 {
         self.year
     }
+    /// Gets the month
     pub fn month(&self) -> u32 {
         self.month.get() as u32
     }
+    /// Gets the day
     pub fn day(&self) -> u32 {
         self.day.get() as u32
     }
@@ -213,9 +216,11 @@ pub struct Time {
 }
 
 impl Time {
+    /// Create a time. Panics if it's invalid.
     pub fn from_hmsz(hh: u32, mm: u32, ss: u32, tz: TzOffset) -> Self {
         Self::from_hmsz_opt(hh, mm, ss, tz).expect("out of range in Time::from_hmsz")
     }
+    /// Create a time. Returns None if it's invalid for any reason.
     pub fn from_hmsz_opt(hh: u32, mm: u32, ss: u32, tz: TzOffset) -> Option<Self> {
         let unval = UnvalidatedTime {
             hh: hh.try_into().ok()?,
@@ -256,6 +261,7 @@ impl Time {
     }
     #[cfg(feature = "chrono")]
     #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
+    /// Strips out the timezone and returns a [chrono::NaiveTime].
     pub fn to_chrono_naive(&self) -> chrono::NaiveTime {
         chrono::NaiveTime::from_hms(self.hour(), self.minute(), self.second())
     }
