@@ -37,12 +37,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           default: true
       - uses: actions-rs/cargo@v1
-        name: "cargo fmt"
-        if: ${{ matrix.rust == 'stable' }}
-        with:
-          command: fmt
-          args: -- --check
-      - uses: actions-rs/cargo@v1
         name: "test with all features"
         with:
           command: test
@@ -57,3 +51,15 @@ jobs:
         with:
           command: check
           args: --no-default-features
+      - uses: actions-rs/cargo@v1
+        name: "cargo fmt"
+        if: ${{ matrix.rust == 'stable' }}
+        with:
+          command: fmt
+          args: -- --check
+      - uses: actions-rs/clippy-check@v1
+        name: "cargo clippy"
+        if: ${{ matrix.rust == 'stable' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
