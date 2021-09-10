@@ -555,10 +555,10 @@ impl Date {
             // Only month provided. Could be a season.
             (Some(month), None) => match month.value_u32() {
                 Some(m) => {
-                    if m >= 21 && m <= 24 {
-                        Precision::Season(y, Season::from_u32(m as u32))
-                    } else if m >= 1 && m <= 12 {
+                    if (1..=12).contains(&m) {
                         Precision::Month(y, m)
+                    } else if (21..=24).contains(&m) {
+                        Precision::Season(y, Season::from_u32(m as u32))
                     } else {
                         unreachable!("month was out of range")
                     }

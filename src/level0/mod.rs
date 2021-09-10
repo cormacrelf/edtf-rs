@@ -103,16 +103,12 @@ impl Date {
         if let Some(m) = self.month.map(NonZeroU8::get) {
             if let Some(d) = self.day.map(NonZeroU8::get) {
                 let _complete = is_valid_complete_date(self.year, m, d)?;
-            } else {
-                if m > 12 {
-                    return Err(ParseError::OutOfRange);
-                }
-            }
-        } else {
-            if self.day.is_some() {
-                // Both the parser and from_ymd can accept 0 for month and nonzero for day.
+            } else if m > 12 {
                 return Err(ParseError::OutOfRange);
             }
+        } else if self.day.is_some() {
+            // Both the parser and from_ymd can accept 0 for month and nonzero for day.
+            return Err(ParseError::OutOfRange);
             // otherwise, both Null.
         }
         Ok(self)

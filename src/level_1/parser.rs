@@ -48,7 +48,7 @@ impl ParsedEdtf {
 }
 
 fn level1(input: &str) -> StrResult<ParsedEdtf> {
-    let sci = scientific_y_l1.map(|sy| ParsedEdtf::YYear(sy));
+    let sci = scientific_y_l1.map(ParsedEdtf::YYear);
     let dt = date_time.map(|(d, t)| ParsedEdtf::DateTime(d, t));
     let single = date_certainty.complete().map(ParsedEdtf::Date);
     let range = date_range.map(|(a, b)| ParsedEdtf::Interval(a, b));
@@ -177,7 +177,7 @@ fn year_maybe_mask(input: &str) -> StrResult<(i32, YearFlags)> {
 
 fn two_digits_maybe_mask(input: &str) -> StrResult<UnvalidatedDMEnum> {
     let masked = nbc::tag("XX").map(|_| UnvalidatedDMEnum::Unspecified);
-    let dig_cert = two_digits.map(|x| UnvalidatedDMEnum::Unmasked(x));
+    let dig_cert = two_digits.map(UnvalidatedDMEnum::Unmasked);
     masked.or(dig_cert).parse(input)
 }
 

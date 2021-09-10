@@ -29,10 +29,10 @@ pub(crate) trait Cyclic: Copy {
     fn increment(storage: Self::Storage) -> Result<Self::Storage, Self::Output>;
     fn decrement(storage: Self::Storage) -> Result<Self::Storage, Self::Output>;
     fn incr_map(storage: Self::Storage) -> Result<Self::Output, Self::Output> {
-        Self::increment(storage).map(|x| Self::output(x))
+        Self::increment(storage).map(Self::output)
     }
     fn decr_map(storage: Self::Storage) -> Result<Self::Output, Self::Output> {
-        Self::decrement(storage).map(|x| Self::output(x))
+        Self::decrement(storage).map(Self::output)
     }
     fn output(storage: Self::Storage) -> Self::Output;
 }

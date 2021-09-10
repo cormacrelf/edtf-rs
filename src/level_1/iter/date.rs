@@ -35,7 +35,7 @@ impl Date {
         min_level: StepSize,
     ) -> Option<Self> {
         let (y, _) = self.year.unpack();
-        let mut new = self.clone();
+        let mut new = *self;
         if let Some(month) = self.month {
             let (m, mflags) = month.unpack();
             match self.day {
@@ -74,7 +74,7 @@ impl Date {
         } else if min_level <= StepSize::Month {
             return None;
         }
-        return Some(new);
+        Some(new)
     }
 
     /// Iterate days that this date could be referring to. Must have day precision.

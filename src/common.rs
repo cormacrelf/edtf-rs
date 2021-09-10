@@ -54,7 +54,7 @@ pub(crate) fn is_valid_complete_date(
     let day = NonZeroU8::new(day).ok_or(ParseError::OutOfRange)?;
     let m = month.get();
     let d = day.get();
-    if m > 12 || m < 1 || d < 1 || d > 31 {
+    if !(1..=12).contains(&m) || d < 1 || d > 31 {
         return Err(ParseError::OutOfRange);
     }
     let max = if is_leap_year(year) {
@@ -210,7 +210,7 @@ pub fn sign(remain: &str) -> StrResult<bool> {
 pub fn minus_sign<T: Copy>(neg_one: T, one: T) -> impl FnMut(&str) -> StrResult<T> {
     move |remain| {
         let (remain, minus) = ncc::char('-').map(|_| ()).optional().parse(remain)?;
-        let val = if let Some(_) = minus { neg_one } else { one };
+        let val = if minus.is_some() { neg_one } else { one };
         Ok((remain, val))
     }
 }

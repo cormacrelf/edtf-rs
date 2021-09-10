@@ -259,7 +259,7 @@ impl PackedInt for PackedU8 {
     fn check_range_ok(inner: Self::Inner) -> bool {
         const MAX: u8 = u8::MAX >> 3;
         const MIN: u8 = 1;
-        inner >= MIN && inner <= MAX
+        (MIN..=MAX).contains(&inner)
     }
     fn unpack(&self) -> (Self::Inner, Self::Addendum) {
         let inner = self.0.get() >> 3;

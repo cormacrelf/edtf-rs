@@ -320,7 +320,7 @@ impl ScientificYear {
     #[cfg_attr(all(test, not(debug_assertions)), no_panic::no_panic)]
     pub fn normalise(&self) -> Self {
         self.value_opt()
-            .and_then(|v| Self::auto_opt(v))
+            .and_then(Self::auto_opt)
             .map(|s| s.and_sd(self.sig_digits.unwrap_or(0)))
             .unwrap_or(*self)
     }

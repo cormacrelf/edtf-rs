@@ -43,7 +43,7 @@ impl ParsedEdtf {
 }
 
 fn level2(input: &str) -> StrResult<ParsedEdtf> {
-    let mut sci = scientific.map(|sy| ParsedEdtf::Scientific(sy));
+    let mut sci = scientific.map(ParsedEdtf::Scientific);
     // let dt = date_time.map(|(d, t)| ParsedEdtf::DateTime(d, t));
     // let single = date_certainty.complete().map(ParsedEdtf::Date);
     // let range = date_range.map(|(a, b)| ParsedEdtf::Range(a, b));

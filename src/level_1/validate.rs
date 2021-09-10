@@ -85,11 +85,10 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
     let day = day.as_ref().map(|m| m.validate()).transpose()?;
 
     // eprintln!("\ncheck_structure: {:?}", date);
-    match (month, day) {
+    if let (None, Some(_)) = (month, day) {
         // this can't happen if you're parsing, but people might try to construct a date like this
         // manually with zero values
-        (None, Some(_)) => return Err(OutOfRange),
-        _ => {}
+        return Err(OutOfRange);
     }
 
     // mask rules
@@ -118,8 +117,8 @@ fn validate(date: UnvalidatedDate) -> Result<Date, ParseError> {
     match (month_val, day_val) {
         // not a month (i.e. a season), but day provided
         (Some(m), Some(_)) if m > 12 => return Err(Invalid),
-        (Some(m), None) if (m >= 1 && m <= 12) || (m >= 21 && m <= 24) => {}
-        (Some(m), Some(d)) if m >= 1 && m <= 12 => {
+        (Some(m), None) if (1..=12).contains(&m) || (21..=24).contains(&m) => {}
+        (Some(m), Some(d)) if (1..=12).contains(&m) => {
             let _complete = is_valid_complete_date(year_val, m, d)?;
         }
         (None, None) => {}
