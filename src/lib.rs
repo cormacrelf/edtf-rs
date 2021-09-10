@@ -217,11 +217,11 @@ impl Time {
             hh: hh.try_into().ok()?,
             mm: mm.try_into().ok()?,
             ss: ss.try_into().ok()?,
-            tz: UnvalidatedTz::None,
+            tz: UnvalidatedTz::Unspecified,
         };
         let mut time = unval.validate().ok()?;
         let tz = match tz {
-            TzOffset::None => tz,
+            TzOffset::Unspecified => tz,
             TzOffset::Hours(x) if x.abs() < 24 => tz,
             TzOffset::Minutes(x) if x.abs() < 24 * 60 => tz,
             TzOffset::Utc => tz,
@@ -266,7 +266,7 @@ impl Time {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TzOffset {
     /// An EDTF with no timezone information at all.
-    None,
+    Unspecified,
     /// `Z`
     Utc,
     /// `+04`

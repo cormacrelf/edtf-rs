@@ -138,7 +138,7 @@ mod test {
                         hh: 01,
                         mm: 47,
                         ss: 05,
-                        tz: UnvalidatedTz::None
+                        tz: UnvalidatedTz::Unspecified
                     },
                 )
             ))

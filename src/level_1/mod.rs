@@ -647,7 +647,7 @@ impl fmt::Display for DateTime {
             year, month, day, hh, mm, ss
         )?;
         match tz {
-            TzOffset::None => {}
+            TzOffset::Unspecified => {}
             TzOffset::Utc => write!(f, "Z")?,
             TzOffset::Hours(h) => {
                 let off_h = h % 24;

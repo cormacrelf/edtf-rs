@@ -46,7 +46,7 @@ impl DateTime {
 impl UnvalidatedTz {
     fn validate(self) -> Result<TzOffset, ParseError> {
         match self {
-            Self::None => Ok(TzOffset::None),
+            Self::Unspecified => Ok(TzOffset::Unspecified),
             Self::Utc => Ok(TzOffset::Utc),
             Self::Hours { positive, hh } => {
                 let sign = if positive { 1 } else { -1 };

@@ -15,7 +15,7 @@ use crate::{DateComplete, DateTime, GetTimezone, Time, TzOffset};
 /// This implementation maps to an EDTF timestamp without any timezone information attached.
 impl GetTimezone for chrono::NaiveDate {
     fn tz_offset(&self) -> TzOffset {
-        TzOffset::None
+        TzOffset::Unspecified
     }
 }
 

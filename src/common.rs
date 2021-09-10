@@ -118,7 +118,7 @@ pub struct UnvalidatedTime {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum UnvalidatedTz {
-    None,
+    Unspecified,
     Utc,
     Hours { positive: bool, hh: u8 },
     HoursMinutes { positive: bool, hh: u8, mm: u8 },
@@ -190,7 +190,7 @@ fn time(remain: &str) -> StrResult<UnvalidatedTime> {
             hh,
             mm,
             ss,
-            tz: tz.unwrap_or(UnvalidatedTz::None),
+            tz: tz.unwrap_or(UnvalidatedTz::Unspecified),
         })
         .parse(remain)
 }
