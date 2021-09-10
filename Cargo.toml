@@ -22,7 +22,7 @@ version = "0.1.36"
 default-features = false
 
 [dependencies.nom]
-version = "6"
+version = "7.0.0"
 default-features = false
 
 [dependencies.chrono]

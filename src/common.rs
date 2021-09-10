@@ -96,7 +96,7 @@ pub fn take_n_digits(n: usize) -> impl FnMut(&str) -> StrResult<&str> {
 pub fn two_digits<T: FromStr>(remain: &str) -> StrResult<T> {
     let (remain, two) = take_n_digits(2)(remain)?;
     // NonZeroU8's FromStr implementation rejects 00.
-    let (_, parsed) = nom::parse_to!(two, T)?;
+    let parsed = two.parse_to_err()?;
     Ok((remain, parsed))
 }
 
@@ -104,7 +104,7 @@ pub fn two_digits<T: FromStr>(remain: &str) -> StrResult<T> {
 pub fn two_digits_zero_none(remain: &str) -> StrResult<Option<NonZeroU8>> {
     let (remain, two) = take_n_digits(2).parse(remain)?;
     // NonZeroU8's FromStr implementation rejects 00.
-    let (_, parsed) = nom::parse_to!(two, u8)?;
+    let parsed = two.parse_to_err()?;
     Ok((remain, NonZeroU8::new(parsed)))
 }
 
@@ -124,10 +124,29 @@ pub enum UnvalidatedTz {
     HoursMinutes { positive: bool, hh: u8, mm: u8 },
 }
 
+pub(crate) trait ParseToExt<R>: ParseTo<R>
+where
+    R: FromStr,
+{
+    fn parse_to_err(self) -> Result<R, nom::Err<nom::error::Error<Self>>>
+    where
+        Self: Sized,
+    {
+        self.parse_to().ok_or_else(|| {
+            nom::Err::Error(NomParseError::from_error_kind(
+                self,
+                // whatever. nom should have an Other errorkind.
+                nom::error::ErrorKind::MapRes,
+            ))
+        })
+    }
+}
+impl<S: ParseTo<R>, R: FromStr> ParseToExt<R> for S {}
+
 pub fn year_n(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
     move |remain| {
         let (remain, four) = take_n_digits(n)(remain)?;
-        let (_, parsed) = nom::parse_to!(four, i32)?;
+        let parsed: i32 = four.parse_to_err()?;
         Ok((remain, parsed))
     }
 }
@@ -136,7 +155,7 @@ pub fn year_n_signed(n: usize) -> impl FnMut(&str) -> StrResult<i32> {
     move |remain| {
         let (remain, sign) = minus_sign(-1i32, 1)(remain)?;
         let (remain, four) = take_n_digits(n)(remain)?;
-        let (_, parsed) = nom::parse_to!(four, i32)?;
+        let parsed: i32 = four.parse_to_err()?;
         if sign == -1 && parsed == 0 {
             return Err(nom::Err::Error(NomParseError::from_error_kind(
                 remain,
@@ -153,7 +172,7 @@ pub fn signed_year_min_n(n: usize) -> impl FnMut(&str) -> StrResult<i64> {
         let nonzero_digit = ncc::satisfy(|c| c.is_ascii_digit() && c != '0');
         let (remain, sign) = minus_sign(-1i64, 1i64).parse(remain)?;
         let (remain, digs) = nc::recognize(nonzero_digit.and(take_min_n_digits(n - 1)))(remain)?;
-        let (_, parsed) = nom::parse_to!(digs, i64)?;
+        let parsed: i64 = digs.parse_to_err()?;
         Ok((remain, parsed * sign))
     }
 }

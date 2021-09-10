@@ -4,8 +4,8 @@
 //
 // Copyright © 2021 Corporation for Digital Scholarship
 
-use crate::helpers::ParserExt;
 use crate::ParseError;
+use crate::{common::ParseToExt, helpers::ParserExt};
 
 #[allow(unused_imports)]
 use nom::{
@@ -78,7 +78,7 @@ pub(crate) fn date(remain: &str) -> StrResult<Date> {
 /// Level 0 year only, so simply exactly four digits 0-9. That's it.
 fn year4(remain: &str) -> StrResult<i32> {
     let (remain, four) = take_n_digits(4)(remain)?;
-    let (_, parsed) = nom::parse_to!(four, i32)?;
+    let parsed = four.parse_to_err()?;
     Ok((remain, parsed))
 }
 

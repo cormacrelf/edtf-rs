@@ -12,7 +12,7 @@ use nom::{
 };
 
 use crate::{
-    common::{signed_year_min_n, year_n_signed, StrResult},
+    common::{signed_year_min_n, year_n_signed, ParseToExt, StrResult},
     helpers::ParserExt,
     ParseError,
 };
@@ -80,14 +80,8 @@ fn scientific_y(remain: &str) -> StrResult<ScientificYear> {
         .or(ns::preceded(ncc::char('Y'), signed_year_min_n(5)).map(|y| (y, None)))
         .and(ns::preceded(s, ncc::digit1).optional())
         .parse(remain)?;
-    let exponent = opt_e
-        .map(|e| nom::parse_to!(e, u16))
-        .transpose()?
-        .map(|x| x.1);
-    let sig_digits = opt_s
-        .map(|s| nom::parse_to!(s, u16))
-        .transpose()?
-        .map(|x| x.1);
+    let exponent = opt_e.map(ParseToExt::<u16>::parse_to_err).transpose()?;
+    let sig_digits = opt_s.map(ParseToExt::<u16>::parse_to_err).transpose()?;
     Ok((
         remain,
         ScientificYear {
@@ -103,7 +97,7 @@ fn scientific_4digit(remain: &str) -> StrResult<ScientificYear> {
     let (remain, (year, sd)) = year_n_signed(4)
         .and(ns::preceded(s, ncc::digit1))
         .parse(remain)?;
-    let (_, sd) = nom::parse_to!(sd, u16)?;
+    let sd: u16 = sd.parse_to_err()?;
     Ok((
         remain,
         ScientificYear {
