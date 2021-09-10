@@ -77,33 +77,39 @@ impl Date {
         return Some(new);
     }
 
-    // if these are the same day, you just get an iterator with a single Some(self) output.
-    // if e.g. 2021-05-XX, it iterates through all the days in May 2021. 2021-XX-XX iterates
-    // through 365 days.
-    pub fn iter_possible_days(&self) -> Option<YearMonthDayIter> {
+    /// For a single fully specified day, this iterates once and stops. For a date with an
+    /// unspecified day, this iterates through all the days it could possibly be referring to.
+    ///
+    /// - `2021-05-17` iterates only one date.
+    /// - `2021-05-XX` iterates through all the days in May 2021.
+    /// - `2021-XX-XX` iterates through all every day in the entire year 2021.
+    ///
+    /// For a date without a day component at all, this returns None.
+    pub fn iter_possible_days(&self) -> Option<DayIter> {
         let start = self.iter_start(StepSize::Day)?;
         let end = self.iter_end(StepSize::Day)?;
         Edtf::Interval(start, end).iter_days()
     }
 
-    pub fn iter_forward_days(&self) -> Option<YearMonthDayIter> {
+    /// Starts at this day (or for -XX, the first of the month/year), steps forward by one day forever.
+    pub fn iter_forward_days(&self) -> Option<DayIter> {
         let d = self.iter_start(StepSize::Day)?.complete()?;
         let ymd = (d.year(), d.month(), d.day());
-        Some(YearMonthDayIter(IncrementIter::raw(Some(ymd), None)))
+        Some(DayIter(IncrementIter::raw(Some(ymd), None)))
     }
 
-    pub fn iter_possible_months(&self) -> Option<YearMonthIter> {
+    pub fn iter_possible_months(&self) -> Option<MonthIter> {
         let start = self.iter_start(StepSize::Month)?;
         let end = self.iter_end(StepSize::Month)?;
         Edtf::Interval(start, end).iter_months()
     }
 
-    pub fn iter_forward_months(&self) -> Option<YearMonthIter> {
+    pub fn iter_forward_months(&self) -> Option<MonthIter> {
         let start = match self.iter_start(StepSize::Month)?.precision() {
             Precision::Month(y, m) => (y, m),
             _ => return None,
         };
-        Some(YearMonthIter(IncrementIter::raw(Some(start), None)))
+        Some(MonthIter(IncrementIter::raw(Some(start), None)))
     }
 }
 
@@ -213,4 +219,3 @@ fn iter_forward_months() {
     date_iter_test!("2020-05"::iter_forward_months().take(3), Some(vec![(2020, 05), (2020, 06), (2020, 07)]));
     date_iter_test!("2020-XX"::iter_forward_months().take(3), Some(vec![(2020, 01), (2020, 02), (2020, 03)]));
 }
-

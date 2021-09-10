@@ -82,31 +82,26 @@ macro_rules! impl_iter_inner {
 }
 
 impl_iter_inner! {
-    /// Iterate all centuries that have any part of them included in the date range. See
-    /// [Edtf::iter_centuries]
+    /// See [Edtf::iter_centuries]
     pub struct CenturyIter(IncrementIter<Century>, type Item = i32; );
 }
 impl_iter_inner! {
-    /// Iterate all decades that have any part of them included in the date range. See
-    /// [Edtf::iter_decades]
+    /// See [Edtf::iter_decades]
     pub struct DecadeIter(IncrementIter<Decade>, type Item = i32; );
 }
 impl_iter_inner! {
-    /// Iterate all years that have any part of them included in the date range.
     /// See [Edtf::iter_years]
     pub struct YearIter(IncrementIter<Year>, type Item = i32; );
 }
 impl_iter_inner! {
-    /// Iterate all year-months that have any part of them included in the date range.
-    /// See [Edtf::iter_months]
-    ///
-    /// For example, `2019-11-30/2020-01` produces `[2019-11, 2019-12, 2020-01]`.
-    pub struct YearMonthIter(IncrementIter<YearMonth>, type Item = (i32, u32); );
+    /// Iterate all year-months as (year, month) pairs. See [Edtf::iter_months],
+    /// [Date::iter_possible_months], [Date::iter_forward_months]
+    pub struct MonthIter(IncrementIter<YearMonth>, type Item = (i32, u32); );
 }
 impl_iter_inner! {
-    /// Iterate all days in the range.
-    /// See [Edtf::iter_days]
-    pub struct YearMonthDayIter(IncrementIter<YearMonthDay>, type Item = DateComplete; );
+    /// Iterate all days in the range, as a [DateComplete].
+    /// See [Edtf::iter_days], [Date::iter_possible_days], [Date::iter_forward_days]
+    pub struct DayIter(IncrementIter<YearMonthDay>, type Item = DateComplete; );
 }
 
 impl From<RangeInclusive<i32>> for CenturyIter {
@@ -156,29 +151,29 @@ impl YearIter {
     }
 }
 
-impl From<RangeInclusive<(i32, u32)>> for YearMonthIter {
+impl From<RangeInclusive<(i32, u32)>> for MonthIter {
     fn from(range: RangeInclusive<(i32, u32)>) -> Self {
         let from = *range.start();
         let to = *range.end();
-        YearMonthIter(IncrementIter::new(from, to))
+        MonthIter(IncrementIter::new(from, to))
     }
 }
 
-impl YearMonthIter {
+impl MonthIter {
     pub fn new(range: RangeInclusive<(i32, u32)>) -> Self {
         range.into()
     }
 }
 
-impl From<RangeInclusive<(i32, u32, u32)>> for YearMonthDayIter {
+impl From<RangeInclusive<(i32, u32, u32)>> for DayIter {
     fn from(range: RangeInclusive<(i32, u32, u32)>) -> Self {
         let from = *range.start();
         let to = *range.end();
-        YearMonthDayIter(IncrementIter::new(from, to))
+        DayIter(IncrementIter::new(from, to))
     }
 }
 
-impl YearMonthDayIter {
+impl DayIter {
     pub fn new(range: RangeInclusive<(i32, u32, u32)>) -> Self {
         range.into()
     }
@@ -233,7 +228,7 @@ impl<T> IteratorExt for T where T: Iterator {}
 
 #[test]
 fn test_ymd_iter() {
-    let iter = YearMonthDayIter(IncrementIter::new((2019, 7, 28), (2019, 8, 2)));
+    let iter = DayIter(IncrementIter::new((2019, 7, 28), (2019, 8, 2)));
     assert_eq!(
         iter.collect_with(Vec::new()),
         vec![
@@ -249,7 +244,7 @@ fn test_ymd_iter() {
 
 #[test]
 fn test_ymd_iter_new_year() {
-    let iter = YearMonthDayIter(IncrementIter::new((2012, 12, 29), (2013, 1, 2)));
+    let iter = DayIter(IncrementIter::new((2012, 12, 29), (2013, 1, 2)));
     assert_eq!(
         iter.collect_with(Vec::new()),
         vec![
@@ -264,11 +259,11 @@ fn test_ymd_iter_new_year() {
 
 #[test]
 fn test_ymd_iter_leap() {
-    let nonleap_wholeyear = YearMonthDayIter(IncrementIter::new((2011, 1, 1), (2011, 12, 31)));
+    let nonleap_wholeyear = DayIter(IncrementIter::new((2011, 1, 1), (2011, 12, 31)));
     assert_eq!(nonleap_wholeyear.count(), 365);
-    let leap_wholeyear = YearMonthDayIter(IncrementIter::new((2012, 1, 1), (2012, 12, 31)));
+    let leap_wholeyear = DayIter(IncrementIter::new((2012, 1, 1), (2012, 12, 31)));
     assert_eq!(leap_wholeyear.count(), 366);
-    let iter = YearMonthDayIter(IncrementIter::new((2019, 2, 27), (2019, 3, 2)));
+    let iter = DayIter(IncrementIter::new((2019, 2, 27), (2019, 3, 2)));
     assert_eq!(
         iter.collect_with(Vec::new()),
         vec![
@@ -278,7 +273,7 @@ fn test_ymd_iter_leap() {
             DateComplete::from_ymd(2019, 3, 2),
         ],
     );
-    let iter = YearMonthDayIter(IncrementIter::new((2012, 2, 27), (2012, 3, 2)));
+    let iter = DayIter(IncrementIter::new((2012, 2, 27), (2012, 3, 2)));
     assert_eq!(
         iter.collect_with(Vec::new()),
         vec![
@@ -305,8 +300,8 @@ pub enum SmallestStep {
     Century(CenturyIter),
     Decade(DecadeIter),
     Year(YearIter),
-    Month(YearMonthIter),
-    Day(YearMonthDayIter),
+    Month(MonthIter),
+    Day(DayIter),
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -397,10 +392,10 @@ impl IntervalPrecision {
             StepSize::Century => SmallestStep::Century(CenturyIter::new(sy..=oy)),
             StepSize::Decade => SmallestStep::Decade(DecadeIter::new(sy..=oy)),
             StepSize::Year => SmallestStep::Year(YearIter::new(sy..=oy)),
-            StepSize::Month => SmallestStep::Month(YearMonthIter::new(
+            StepSize::Month => SmallestStep::Month(MonthIter::new(
                 (sy, self.month()? as u32)..=(oy, other.month()? as u32),
             )),
-            StepSize::Day => SmallestStep::Day(YearMonthDayIter::new(self.ymd()?..=other.ymd()?)),
+            StepSize::Day => SmallestStep::Day(DayIter::new(self.ymd()?..=other.ymd()?)),
             StepSize::Season => todo!("season iteration not implemented"),
         })
     }
@@ -471,6 +466,7 @@ impl Edtf {
         d1.round_with(d2, level)
     }
 
+    /// Iterate all centuries that have any part of them included in the date range.
     pub fn iter_centuries(&self) -> Option<CenturyIter> {
         match self.iter_at(StepSize::Century)? {
             SmallestStep::Century(c) => Some(c),
@@ -478,6 +474,7 @@ impl Edtf {
         }
     }
 
+    /// Iterate all decades that have any part of them included in the date range.
     pub fn iter_decades(&self) -> Option<DecadeIter> {
         match self.iter_at(StepSize::Decade)? {
             SmallestStep::Decade(c) => Some(c),
@@ -492,14 +489,18 @@ impl Edtf {
         }
     }
 
-    pub fn iter_months(&self) -> Option<YearMonthIter> {
+    /// Iterate all year-months that have any part of them included in the date range, as (year,
+    /// month) pairs.
+    ///
+    /// For example, `2019-11-30/2020-01` produces `[2019-11, 2019-12, 2020-01]`.
+    pub fn iter_months(&self) -> Option<MonthIter> {
         match self.iter_at(StepSize::Month)? {
             SmallestStep::Month(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn iter_days(&self) -> Option<YearMonthDayIter> {
+    pub fn iter_days(&self) -> Option<DayIter> {
         match self.iter_at(StepSize::Day)? {
             SmallestStep::Day(c) => Some(c),
             _ => None,
