@@ -32,6 +32,5 @@ optional = true
 
 [dev-dependencies]
 no-panic = "0.1.15"
-version-sync = "0.9"
 
 
