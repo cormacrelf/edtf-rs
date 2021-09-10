@@ -45,10 +45,14 @@ use core::num::NonZeroU8;
 
 use crate::DateTime;
 
+/// A level 0 EDTF. See [crate::level_0] module level docs for supported syntax.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Edtf {
+    /// A single date, of varying precision.
     Date(Date),
+    /// Two dates separated by a slash, representing an inclusive interval
     Interval(Date, Date),
+    /// A time stamp with optional time zone information.
     DateTime(DateTime),
 }
 
@@ -57,24 +61,33 @@ impl Edtf {
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         Self::parse_inner(input).and_then(Self::validate)
     }
-    pub fn from_ymd_opt(year: i32, month: u32, day: u32) -> Option<Self> {
-        Date::from_ymd_opt(year, month, day).map(Self::Date)
-    }
-    pub fn from_ymd(year: i32, month: u32, day: u32) -> Self {
-        Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
-    }
+
+    // Not really necessary
+    // /// Creates an [Edtf::Date]
+    // pub fn from_ymd_opt(year: i32, month: u32, day: u32) -> Option<Self> {
+    //     Date::from_ymd_opt(year, month, day).map(Self::Date)
+    // }
+    // pub fn from_ymd(year: i32, month: u32, day: u32) -> Self {
+    //     Self::from_ymd_opt(year, month, day).expect("invalid or out-of-range date")
+    // }
+
+    /// If self is an [Edtf::Date], return it.
     pub fn as_date(&self) -> Option<Date> {
         match self {
             Self::Date(d) => Some(*d),
             _ => None,
         }
     }
+
+    /// If self is an [Edtf::Interval], return it.
     pub fn as_interval(&self) -> Option<(Date, Date)> {
         match self {
             Self::Interval(d, d2) => Some((*d, *d2)),
             _ => None,
         }
     }
+
+    /// If self is an [Edtf::DateTime], return it.
     pub fn as_datetime(&self) -> Option<DateTime> {
         match self {
             Self::DateTime(d) => Some(*d),
@@ -83,6 +96,7 @@ impl Edtf {
     }
 }
 
+/// An EDTF level 0 Date. Supports only YYYY, YYYY-MM, YYYY-MM-DD.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Date {
     pub(crate) year: i32,

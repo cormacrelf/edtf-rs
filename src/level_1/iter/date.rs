@@ -77,6 +77,8 @@ impl Date {
         return Some(new);
     }
 
+    /// Iterate days that this date could be referring to. Must have day precision.
+    ///
     /// For a single fully specified day, this iterates once and stops. For a date with an
     /// unspecified day, this iterates through all the days it could possibly be referring to.
     ///
@@ -98,12 +100,23 @@ impl Date {
         Some(DayIter(IncrementIter::raw(Some(ymd), None)))
     }
 
+    /// Iterate months that this date could be referring to. Must have month precision.
+    ///
+    /// For a single fully specified month, this iterates once and stops. For a date with an
+    /// unspecified month, this iterates through all the months in that year.
+    ///
+    /// - `2021-05` iterates only one month.
+    /// - `2021-XX` iterates through all the months in 2021.
+    ///
+    /// For a date with day precision or no month component at all, this returns None.
     pub fn iter_possible_months(&self) -> Option<MonthIter> {
         let start = self.iter_start(StepSize::Month)?;
         let end = self.iter_end(StepSize::Month)?;
         Edtf::Interval(start, end).iter_months()
     }
 
+    /// Starts at this specific month (or for unspecified month, January of that year), and steps
+    /// forward by month forever.
     pub fn iter_forward_months(&self) -> Option<MonthIter> {
         let start = match self.iter_start(StepSize::Month)?.precision() {
             Precision::Month(y, m) => (y, m),

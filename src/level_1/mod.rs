@@ -6,6 +6,7 @@
 
 #![doc = include_str!("README.md")]
 
+/// A set of iterators for stepping through date intervals.
 pub mod iter;
 pub(crate) mod packed;
 

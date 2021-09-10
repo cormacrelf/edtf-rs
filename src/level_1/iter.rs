@@ -21,13 +21,13 @@ where
 }
 
 impl<I: Incrementable> IncrementIter<I> {
-    pub fn raw(from: Option<I::Input>, to: Option<I::Input>) -> Self {
+    pub(crate) fn raw(from: Option<I::Input>, to: Option<I::Input>) -> Self {
         Self {
             from: from.map(I::lift),
             to: to.map(I::lift),
         }
     }
-    pub fn new(from: I::Input, to: I::Input) -> Self {
+    pub(crate) fn new(from: I::Input, to: I::Input) -> Self {
         Self {
             from: Some(I::lift(from)),
             to: Some(I::lift(to)),
@@ -146,7 +146,7 @@ impl From<RangeInclusive<i32>> for YearIter {
 
 impl YearIter {
     /// Create using a range, like `1905..=1939 => [1900, 1910, 1920, 1930]`
-    pub fn new(range: RangeInclusive<i32>) -> Self {
+    fn new(range: RangeInclusive<i32>) -> Self {
         range.into()
     }
 }
@@ -160,7 +160,7 @@ impl From<RangeInclusive<(i32, u32)>> for MonthIter {
 }
 
 impl MonthIter {
-    pub fn new(range: RangeInclusive<(i32, u32)>) -> Self {
+    fn new(range: RangeInclusive<(i32, u32)>) -> Self {
         range.into()
     }
 }
@@ -174,7 +174,7 @@ impl From<RangeInclusive<(i32, u32, u32)>> for DayIter {
 }
 
 impl DayIter {
-    pub fn new(range: RangeInclusive<(i32, u32, u32)>) -> Self {
+    fn new(range: RangeInclusive<(i32, u32, u32)>) -> Self {
         range.into()
     }
 }
@@ -295,6 +295,7 @@ fn test_ymd_iter_leap() {
 // pub struct YearSeasonIter(i32, Season, i32, Season);
 
 /// See [Edtf::iter_smallest]
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SmallestStep {
     Century(CenturyIter),
@@ -447,7 +448,7 @@ impl Edtf {
         }
     }
 
-    /// If self is an finite interval, returns an enum containing the variant which iterates at
+    /// If self is an closed interval, returns an enum containing the variant which iterates at
     /// the smallest sized step supported by both ends of the interval.
     ///
     /// Open/unknown ranges return None. So do any unspecified digits in either terminal.
@@ -466,7 +467,8 @@ impl Edtf {
         d1.round_with(d2, level)
     }
 
-    /// Iterate all centuries that have any part of them included in the date range.
+    /// Iterate all centuries that have any part of them included in the date range. Must be a
+    /// closed interval.
     pub fn iter_centuries(&self) -> Option<CenturyIter> {
         match self.iter_at(StepSize::Century)? {
             SmallestStep::Century(c) => Some(c),
@@ -474,7 +476,8 @@ impl Edtf {
         }
     }
 
-    /// Iterate all decades that have any part of them included in the date range.
+    /// Iterate all decades that have any part of them included in the date range. Must be a closed
+    /// interval.
     pub fn iter_decades(&self) -> Option<DecadeIter> {
         match self.iter_at(StepSize::Decade)? {
             SmallestStep::Decade(c) => Some(c),
@@ -482,6 +485,8 @@ impl Edtf {
         }
     }
 
+    /// Iterate all years that have any part of them included in the date range. Must be a closed
+    /// interval.
     pub fn iter_years(&self) -> Option<YearIter> {
         match self.iter_at(StepSize::Year)? {
             SmallestStep::Year(c) => Some(c),
@@ -490,22 +495,45 @@ impl Edtf {
     }
 
     /// Iterate all year-months that have any part of them included in the date range, as (year,
-    /// month) pairs.
+    /// month) pairs. Must be a closed interval with both ends having month precision or better.
     ///
-    /// For example, `2019-11-30/2020-01` produces `[2019-11, 2019-12, 2020-01]`.
+    /// For example, `2019-11-30/2020-01` iterates `2019-11, 2019-12, 2020-01`. `2020-11/2021`
+    /// returns None.
     pub fn iter_months(&self) -> Option<MonthIter> {
         match self.iter_at(StepSize::Month)? {
             SmallestStep::Month(c) => Some(c),
             _ => None,
         }
     }
-
+    /// Iterate all days in the date range, as [DateComplete] values. Must be a closed interval
+    /// with both ends having day precision.
+    ///
+    /// - `2020-02-25/2020-03-02` returns
+    ///
+    /// ```rust
+    /// // let's play on hard mode
+    /// use edtf::level_1::Edtf;
+    /// let edtf = Edtf::parse("2020-02-25/2020-03-02").unwrap();
+    /// let days: Vec<_> = edtf.iter_days().unwrap().collect();
+    /// ```
     pub fn iter_days(&self) -> Option<DayIter> {
         match self.iter_at(StepSize::Day)? {
             SmallestStep::Day(c) => Some(c),
             _ => None,
         }
     }
+}
+
+#[test]
+fn test_iter_days_unspec() {
+    let edtf = Edtf::parse("2021-06-27/2021-06-XX").unwrap();
+    let iter = edtf.iter_days().unwrap();
+    assert_eq!(iter.collect_with(Vec::new()), vec![
+        DateComplete::from_ymd(2021, 06, 27),
+        DateComplete::from_ymd(2021, 06, 28),
+        DateComplete::from_ymd(2021, 06, 29),
+        DateComplete::from_ymd(2021, 06, 30),
+    ])
 }
 
 #[test]

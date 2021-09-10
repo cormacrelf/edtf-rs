@@ -8,12 +8,16 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 
+// use `bacon docs-rs` to review missing documentation
+#![cfg_attr(docsrs, warn(missing_docs))]
+
 #[cfg(all(doc, feature = "chrono"))]
 use chrono::NaiveDate;
 
 pub(crate) mod common;
 pub(crate) mod helpers;
 mod level0;
+#[allow(missing_docs)]
 mod level2;
 pub mod level_1;
 use common::{UnvalidatedTime, UnvalidatedTz};
