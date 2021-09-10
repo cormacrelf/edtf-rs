@@ -21,13 +21,13 @@ fn days_in_month(y: i32, m: u8) -> u8 {
 }
 
 impl Date {
-    fn iter_start(&self, min_level: StepSize) -> Option<Self> {
-        self.trunc_for_iter(1, |_, _| 1, 1, min_level)
+    pub(super) fn unspec_start(&self, min_level: StepSize) -> Option<Self> {
+        self.reify_unspecified(1, |_, _| 1, 1, min_level)
     }
-    fn iter_end(&self, min_level: StepSize) -> Option<Self> {
-        self.trunc_for_iter(12, days_in_month, 31, min_level)
+    pub(super) fn unspec_end(&self, min_level: StepSize) -> Option<Self> {
+        self.reify_unspecified(12, days_in_month, 31, min_level)
     }
-    fn trunc_for_iter(
+    fn reify_unspecified(
         &self,
         cap_month: u8,
         mday: fn(i32, u8) -> u8,
@@ -88,14 +88,14 @@ impl Date {
     ///
     /// For a date without a day component at all, this returns None.
     pub fn iter_possible_days(&self) -> Option<DayIter> {
-        let start = self.iter_start(StepSize::Day)?;
-        let end = self.iter_end(StepSize::Day)?;
+        let start = self.unspec_start(StepSize::Day)?;
+        let end = self.unspec_end(StepSize::Day)?;
         Edtf::Interval(start, end).iter_days()
     }
 
     /// Starts at this day (or for -XX, the first of the month/year), steps forward by one day forever.
     pub fn iter_forward_days(&self) -> Option<DayIter> {
-        let d = self.iter_start(StepSize::Day)?.complete()?;
+        let d = self.unspec_start(StepSize::Day)?.complete()?;
         let ymd = (d.year(), d.month(), d.day());
         Some(DayIter(IncrementIter::raw(Some(ymd), None)))
     }
@@ -110,15 +110,15 @@ impl Date {
     ///
     /// For a date with day precision or no month component at all, this returns None.
     pub fn iter_possible_months(&self) -> Option<MonthIter> {
-        let start = self.iter_start(StepSize::Month)?;
-        let end = self.iter_end(StepSize::Month)?;
+        let start = self.unspec_start(StepSize::Month)?;
+        let end = self.unspec_end(StepSize::Month)?;
         Edtf::Interval(start, end).iter_months()
     }
 
     /// Starts at this specific month (or for unspecified month, January of that year), and steps
     /// forward by month forever.
     pub fn iter_forward_months(&self) -> Option<MonthIter> {
-        let start = match self.iter_start(StepSize::Month)?.precision() {
+        let start = match self.unspec_start(StepSize::Month)?.precision() {
             Precision::Month(y, m) => (y, m),
             _ => return None,
         };

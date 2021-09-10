@@ -7,7 +7,10 @@
 mod date;
 mod incrementable;
 
-use super::{packed::PackedInt, *};
+use super::{
+    packed::{DMFlags, PackedInt},
+    *,
+};
 use core::ops::RangeInclusive;
 use incrementable::*;
 
@@ -305,7 +308,7 @@ pub enum SmallestStep {
     Day(DayIter),
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum StepSize {
     Day,
     Month,
@@ -315,50 +318,34 @@ enum StepSize {
     Century,
 }
 
-#[derive(Copy, Clone)]
-enum IntervalPrecision {
-    Day(i32, u8, u8),
-    Month(i32, u8),
-    Season(i32, u8),
-    Year(i32),
-    Decade(i32),
-    Century(i32),
+#[derive(Copy, Clone, Debug)]
+struct IntervalPrecision {
+    date: Date,
+    step: StepSize,
 }
 
 impl IntervalPrecision {
-    fn discriminant(&self) -> StepSize {
-        match self {
-            Self::Day(..) => StepSize::Day,
-            Self::Month(..) => StepSize::Month,
-            Self::Season(..) => StepSize::Season,
-            Self::Year(..) => StepSize::Year,
-            Self::Decade(..) => StepSize::Decade,
-            Self::Century(..) => StepSize::Century,
-        }
-    }
     fn lowest_common_precision(self, other: Self) -> StepSize {
-        self.discriminant().max(other.discriminant())
+        self.step.max(other.step)
     }
     fn year(&self) -> i32 {
-        match *self {
-            Self::Day(y, ..)
-            | Self::Month(y, ..)
-            | Self::Season(y, ..)
-            | Self::Year(y, ..)
-            | Self::Decade(y, ..)
-            | Self::Century(y, ..) => y,
-        }
+        let (y, _) = self.date.year.unpack();
+        y
     }
     fn month(&self) -> Option<u8> {
-        match *self {
-            Self::Day(_, m, ..) | Self::Month(_, m, ..) => Some(m),
-            _ => None,
+        if self.step <= StepSize::Month {
+            let (m, _) = self.date.month?.unpack();
+            Some(m)
+        } else {
+            None
         }
     }
     fn day(&self) -> Option<u8> {
-        match *self {
-            Self::Day(_, _, d, ..) => Some(d),
-            _ => None,
+        if self.step <= StepSize::Day {
+            let (d, _) = self.date.day?.unpack();
+            Some(d)
+        } else {
+            None
         }
     }
     fn ymd(&self) -> Option<(i32, u32, u32)> {
@@ -368,35 +355,49 @@ impl IntervalPrecision {
         Some((year, month as u32, day as u32))
     }
 
-    // fn round(self, discriminant: Discriminant) -> Option<Self> {
-    //     Some(match discriminant {
-    //         Discriminant::Century => Self::Century(self.year()),
-    //         Discriminant::Decade => Self::Decade(self.year()),
-    //         Discriminant::Year => Self::Year(self.year()),
-    //         Discriminant::Month => Self::Month(self.year(), self.month()?),
-    //         Discriminant::Day => Self::Day(self.year(), self.month()?, self.day()?),
-    //         Discriminant::Season => todo!(),
-    //     })
-    // }
-
     // fn open_to(self) -> Option<IntervalIter> {
     //     Some(match self {
     //         Self::Century(c) => IntervalIter::Century(Century::new(c..)),
     //     })
     // }
 
-    fn round_with(self, other: Self, discriminant: StepSize) -> Option<SmallestStep> {
-        let sy = self.year();
-        let oy = other.year();
+    fn iter_start(&self, step: StepSize) -> Option<Self> {
+        Some(IntervalPrecision {
+            date: if step <= self.step {
+                self.date.unspec_start(step)?
+            } else {
+                self.date.truncate(step)
+            },
+            step: self.step.max(step),
+        })
+    }
 
-        Some(match discriminant {
+    fn iter_end(&self, step: StepSize) -> Option<Self> {
+        Some(IntervalPrecision {
+            date: if step <= self.step {
+                self.date.unspec_end(step)?
+            } else {
+                self.date.truncate(step)
+            },
+            step: self.step.max(step),
+        })
+    }
+
+    fn round_with(self, other: Self, step: StepSize) -> Option<SmallestStep> {
+        let start = self.iter_start(step)?;
+        let end = other.iter_end(step)?;
+
+        let sy = start.year();
+        let oy = end.year();
+
+        Some(match step {
             StepSize::Century => SmallestStep::Century(CenturyIter::new(sy..=oy)),
             StepSize::Decade => SmallestStep::Decade(DecadeIter::new(sy..=oy)),
             StepSize::Year => SmallestStep::Year(YearIter::new(sy..=oy)),
             StepSize::Month => SmallestStep::Month(MonthIter::new(
-                (sy, self.month()? as u32)..=(oy, other.month()? as u32),
+                (sy, start.month()? as u32)..=(oy, end.month()? as u32),
             )),
-            StepSize::Day => SmallestStep::Day(DayIter::new(self.ymd()?..=other.ymd()?)),
+            StepSize::Day => SmallestStep::Day(DayIter::new(start.ymd()?..=end.ymd()?)),
             StepSize::Season => todo!("season iteration not implemented"),
         })
     }
@@ -404,30 +405,37 @@ impl IntervalPrecision {
 
 impl Date {
     fn max_interval_precision(&self) -> Option<IntervalPrecision> {
-        let (y, yflags) = self.year.unpack();
+        let step = self.smallest_step_size()?;
+        Some(IntervalPrecision { date: *self, step })
+    }
+    fn smallest_step_size(&self) -> Option<StepSize> {
+        let (_, yflags) = self.year.unpack();
         if let Some(m) = self.month {
-            let (mu8, flags) = m.unpack();
-            if flags.is_masked() {
-                return None;
-            }
-            if let Some(d) = self.day {
-                let (du8, df) = d.unpack();
-                if df.is_masked() {
-                    return None;
-                }
-                return Some(IntervalPrecision::Day(y, mu8, du8));
+            let (mu8, _mf) = m.unpack();
+            if self.day.is_some() {
+                return Some(StepSize::Day);
             }
             if mu8 <= 12 {
-                return Some(IntervalPrecision::Month(y, mu8));
+                return Some(StepSize::Month);
             } else {
-                return Some(IntervalPrecision::Season(y, mu8));
+                return Some(StepSize::Season);
             }
         }
         Some(match yflags.mask {
-            YearMask::None => IntervalPrecision::Year(y),
-            YearMask::OneDigit => IntervalPrecision::Decade(y),
-            YearMask::TwoDigits => IntervalPrecision::Century(y),
+            YearMask::None => StepSize::Year,
+            YearMask::OneDigit => StepSize::Decade,
+            YearMask::TwoDigits => StepSize::Century,
         })
+    }
+    fn truncate(&self, step: StepSize) -> Self {
+        let mut clone = *self;
+        if step > StepSize::Day {
+            clone.day = PackedU8::pack(0, DMFlags::new(Certainty::Certain, DMMask::None));
+        }
+        if step > StepSize::Month {
+            clone.month = PackedU8::pack(0, DMFlags::new(Certainty::Certain, DMMask::None));
+        }
+        clone
     }
 }
 impl Edtf {
@@ -454,17 +462,17 @@ impl Edtf {
     /// Open/unknown ranges return None. So do any unspecified digits in either terminal.
     pub fn iter_smallest(&self) -> Option<SmallestStep> {
         let (d1, d2) = self.interval()?;
-        let d1 = d1.max_interval_precision()?;
-        let d2 = d2.max_interval_precision()?;
-        let disc = d1.lowest_common_precision(d2);
-        d1.round_with(d2, disc)
+        let ip1 = d1.max_interval_precision()?;
+        let ip2 = d2.max_interval_precision()?;
+        let disc = ip1.lowest_common_precision(ip2);
+        ip1.round_with(ip2, disc)
     }
 
     fn iter_at(&self, level: StepSize) -> Option<SmallestStep> {
         let (d1, d2) = self.interval()?;
-        let d1 = d1.max_interval_precision()?;
-        let d2 = d2.max_interval_precision()?;
-        d1.round_with(d2, level)
+        let ip1 = d1.max_interval_precision()?;
+        let ip2 = d2.max_interval_precision()?;
+        ip1.round_with(ip2, level)
     }
 
     /// Iterate all centuries that have any part of them included in the date range. Must be a
@@ -528,12 +536,58 @@ impl Edtf {
 fn test_iter_days_unspec() {
     let edtf = Edtf::parse("2021-06-27/2021-06-XX").unwrap();
     let iter = edtf.iter_days().unwrap();
-    assert_eq!(iter.collect_with(Vec::new()), vec![
-        DateComplete::from_ymd(2021, 06, 27),
-        DateComplete::from_ymd(2021, 06, 28),
-        DateComplete::from_ymd(2021, 06, 29),
-        DateComplete::from_ymd(2021, 06, 30),
-    ])
+    assert_eq!(
+        iter.collect_with(Vec::new()),
+        vec![
+            DateComplete::from_ymd(2021, 06, 27),
+            DateComplete::from_ymd(2021, 06, 28),
+            DateComplete::from_ymd(2021, 06, 29),
+            DateComplete::from_ymd(2021, 06, 30),
+        ]
+    );
+    let edtf = Edtf::parse("2021-06-XX/2021-06-04").unwrap();
+    let iter = edtf.iter_days().unwrap();
+    assert_eq!(
+        iter.collect_with(Vec::new()),
+        vec![
+            DateComplete::from_ymd(2021, 06, 01),
+            DateComplete::from_ymd(2021, 06, 02),
+            DateComplete::from_ymd(2021, 06, 03),
+            DateComplete::from_ymd(2021, 06, 04),
+        ]
+    );
+    let edtf = Edtf::parse("2021-XX-XX/2021-01-04").unwrap();
+    let iter = edtf.iter_days().unwrap();
+    assert_eq!(
+        iter.collect_with(Vec::new()),
+        vec![
+            DateComplete::from_ymd(2021, 01, 01),
+            DateComplete::from_ymd(2021, 01, 02),
+            DateComplete::from_ymd(2021, 01, 03),
+            DateComplete::from_ymd(2021, 01, 04),
+        ]
+    );
+    let edtf = Edtf::parse("2021-12-28/2021-XX-XX").unwrap();
+    let iter = edtf.iter_days().unwrap();
+    assert_eq!(
+        iter.collect_with(Vec::new()),
+        vec![
+            DateComplete::from_ymd(2021, 12, 28),
+            DateComplete::from_ymd(2021, 12, 29),
+            DateComplete::from_ymd(2021, 12, 30),
+            DateComplete::from_ymd(2021, 12, 31),
+        ]
+    );
+}
+
+#[test]
+fn test_iter_months_unspec() {
+    let edtf = Edtf::parse("2021-11/2021-XX").unwrap();
+    let iter = edtf.iter_months().unwrap();
+    assert_eq!(iter.collect_with(Vec::new()), vec![(2021, 11), (2021, 12)]);
+    let edtf = Edtf::parse("2021-XX/2021-02").unwrap();
+    let iter = edtf.iter_months().unwrap();
+    assert_eq!(iter.collect_with(Vec::new()), vec![(2021, 01), (2021, 02)]);
 }
 
 #[test]
