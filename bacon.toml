@@ -19,7 +19,7 @@ command = ["cargo", "clippy", "--color", "always"]
 need_stdout = false
 
 [jobs.test]
-command = ["cargo", "test", "--color", "always"]
+command = ["cargo", "test", "--color", "always", "--all-features"]
 need_stdout = true
 watch = ["tests", "README.md", "src/level_1/README.md", "src/level_1/YYear.md"]
 

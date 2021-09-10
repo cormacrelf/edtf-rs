@@ -407,6 +407,7 @@ impl Timelike for DateTime {
 impl Offset for TzOffset {
     fn fix(&self) -> chrono::FixedOffset {
         match *self {
+            TzOffset::Unspecified => chrono::FixedOffset::east(0),
             TzOffset::Utc => chrono::FixedOffset::east(0),
             TzOffset::Hours(h) => chrono::FixedOffset::east(h * 3600),
             TzOffset::Minutes(min) => chrono::FixedOffset::east(min * 60),
@@ -454,7 +455,26 @@ fn timezone_impl() {
                 hh: 19,
                 mm: 7,
                 ss: 56,
-                tz: Some(TzOffset::Hours(4))
+                tz: TzOffset::Hours(4)
+            }
+        })
+    );
+}
+
+#[test]
+fn timezone_impl_unspec() {
+    let off = TzOffset::Unspecified;
+    let ch = off.ymd(2019, 8, 7).and_hms(19, 7, 56);
+    let edtf = crate::level_1::Edtf::from(ch).as_datetime();
+    assert_eq!(
+        edtf,
+        Some(DateTime {
+            date: DateComplete::from_ymd(2019, 8, 7),
+            time: Time {
+                hh: 19,
+                mm: 7,
+                ss: 56,
+                tz: TzOffset::Unspecified,
             }
         })
     );

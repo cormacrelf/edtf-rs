@@ -131,18 +131,18 @@ impl DateTime {
     {
         let DateTime { date, time } = self;
         match time.tz {
-            None => chrono_tz_datetime(tz, date, time),
-            Some(TzOffset::Utc) => {
+            TzOffset::Unspecified => chrono_tz_datetime(tz, date, time),
+            TzOffset::Utc => {
                 let utc = chrono_tz_datetime(&chrono::Utc, date, time);
                 utc.with_timezone(tz)
             }
-            Some(TzOffset::Hours(hours)) => {
+            TzOffset::Hours(hours) => {
                 let fixed_zone = chrono::FixedOffset::east_opt(hours * 3600)
                     .expect("time zone offset out of bounds");
                 let fixed_dt = chrono_tz_datetime(&fixed_zone, date, time);
                 fixed_dt.with_timezone(tz)
             }
-            Some(TzOffset::Minutes(signed_min)) => {
+            TzOffset::Minutes(signed_min) => {
                 let fixed_zone = chrono::FixedOffset::east_opt(signed_min * 60)
                     .expect("time zone offset out of bounds");
                 let fixed_dt = chrono_tz_datetime(&fixed_zone, date, time);
@@ -275,7 +275,12 @@ impl Time {
 /// `+04:00`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TzOffset {
-    /// An EDTF with no timezone information at all.
+    #[cfg_attr(not(feature = "chrono"), allow(rustdoc::broken_intra_doc_links))]
+    /// An EDTF with no timezone information at all. Not RFC3339-compliant. Not rendered at all
+    /// when formatting an Edtf.
+    ///
+    /// If this is used as a [chrono::TimeZone], then it may be coerced into Utc when combined with
+    /// other tz implementations, like [chrono::offset::FixedOffset].
     Unspecified,
     /// `Z`
     Utc,
