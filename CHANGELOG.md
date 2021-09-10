@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2021-09-10
+
+### Features
+
+- Add missing Hash implementations
+
 ## [0.1.0] - 2021-09-10
 
 Initial release, with levels 0 and 1 support. Includes `chrono` integration, a
