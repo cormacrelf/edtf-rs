@@ -103,7 +103,7 @@ invalid values and the data is packed. Use `edtf.as_matcher()` to get a
 convenient representation.
 
 ```rust
-use edtf::level_1::{Date, Edtf, Matcher, Certainty, Precision, Terminal};
+use edtf::level_1::{Date, Edtf, Matcher, Certainty, Precision, MatchTerminal};
 use edtf::{DateTime, Time, DateComplete, TzOffset};
 
 let edtf = Edtf::parse("2021-07-15");
@@ -128,13 +128,13 @@ let edtf = Edtf::parse("2019-XX/..").unwrap();
 match edtf.as_matcher() {
     Matcher::Interval(from, to) => {
         match from {
-            Terminal::Fixed(precision, certainty) => {
+            MatchTerminal::Fixed(precision, certainty) => {
                 assert_eq!(precision, Precision::MonthOfYear(2019));
                 assert_eq!(certainty, Certainty::Certain);
             }
-            Terminal::Open | Terminal::Unknown => panic!("not matched"),
+            MatchTerminal::Open | MatchTerminal::Unknown => panic!("not matched"),
         }
-        assert_eq!(to, Terminal::Open);
+        assert_eq!(to, MatchTerminal::Open);
     }
     _ => panic!("not matched"),
 }
