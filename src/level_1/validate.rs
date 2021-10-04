@@ -8,6 +8,7 @@ use crate::common::is_valid_complete_date;
 use crate::ParseError::{self, *};
 use core::convert::TryInto;
 
+use super::Terminal;
 use super::{
     packed::{Certainty, DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
@@ -33,10 +34,12 @@ impl ParsedEdtf {
             }
             Self::Interval(d, d2) => Edtf::Interval(d.validate()?, d2.validate()?),
             Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
-            Self::IntervalOpenFrom(start) => Edtf::IntervalOpenFrom(start.validate()?),
-            Self::IntervalOpenTo(end) => Edtf::IntervalOpenTo(end.validate()?),
-            Self::IntervalUnknownFrom(start) => Edtf::IntervalOpenFrom(start.validate()?),
-            Self::IntervalUnknownTo(end) => Edtf::IntervalOpenTo(end.validate()?),
+            Self::IntervalOpenFrom(start) => Edtf::IntervalFrom(start.validate()?, Terminal::Open),
+            Self::IntervalUnknownFrom(start) => {
+                Edtf::IntervalFrom(start.validate()?, Terminal::Unknown)
+            }
+            Self::IntervalOpenTo(end) => Edtf::IntervalTo(Terminal::Open, end.validate()?),
+            Self::IntervalUnknownTo(end) => Edtf::IntervalTo(Terminal::Unknown, end.validate()?),
         })
     }
 }
