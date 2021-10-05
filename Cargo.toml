@@ -1,6 +1,6 @@
 [package]
 name = "edtf"
-version = "0.2.0"
+version = "0.2.1-alpha.0"
 authors = ["Cormac Relf <web@cormacrelf.net>"]
 edition = "2018"
 description = "EDTF parser"
