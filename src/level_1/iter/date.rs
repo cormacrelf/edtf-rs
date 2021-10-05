@@ -20,6 +20,7 @@ fn days_in_month(y: i32, m: u8) -> u8 {
     lut[m as usize - 1]
 }
 
+/// # Iterators
 impl Date {
     pub(super) fn unspec_start(&self, min_level: StepSize) -> Option<Self> {
         self.reify_unspecified(1, |_, _| 1, 1, min_level)

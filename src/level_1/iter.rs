@@ -438,6 +438,8 @@ impl Date {
         clone
     }
 }
+
+/// # Iterators
 impl Edtf {
     // TODO: make iterators for OpenFrom/UnknownFrom that simply produce no output unless you
     // reverse them.

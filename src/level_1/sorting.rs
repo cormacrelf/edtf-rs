@@ -1,15 +1,20 @@
-use chrono::NaiveTime;
 use super::*;
+use chrono::NaiveTime;
 
+/// # Sort orders
+///
+/// Ord is not implemented on Edtf, because Edtf's Eq and Hash implementations usefully
+/// differentiate between e.g. `2010-08-12` and `2010-08-12T00:00:00Z`, and sorting Edtfs on
+/// by the points in time they represent is incompatible with that. Edtf's Eq/Hash
+/// implementations should be thought of as being roughly equivalent to a string comparison on
+/// the underlying EDTF format, whereas this function sorts on an actual timeline.
+///
+/// All the sort orders here convert any datetimes to UTC, including "no datetime" which is just
+/// presumed to be UTC.
+///
 impl Edtf {
     /// A type that is sortable in a reasonable way, first using [Edtf::sort_order_start] and tie-breaking
     /// with [Edtf::sort_order_end]. Use with `Vec::sort_by_key` etc.
-    ///
-    /// Ord is not implemented on Edtf, because Edtf's Eq and Hash implementations usefully
-    /// differentiate between e.g. `2010-08-12` and `2010-08-12T00:00:00Z`, and sorting Edtfs on
-    /// by the points in time they represent is incompatible with that. Edtf's Eq/Hash
-    /// implementations should be thought of as being roughly equivalent to a string comparison on
-    /// the underlying EDTF format, whereas this function sorts on an actual timeline.
     ///
     /// ```
     /// use edtf::level_1::Edtf;
@@ -249,9 +254,18 @@ fn test_cmp_yyear() {
 #[test]
 fn test_cmp_datetime() {
     assert_eq!(cmp("2010-08-12T00:00:00Z", "2010-08-12"), Ordering::Equal);
-    assert_eq!(cmp("2010-08-12T00:00:00Z", "2010-08-12T00:00:05Z"), Ordering::Less);
-    assert_eq!(cmp("2010-08-12T00:00:00Z", "2010-08-12T00:00:00-01:00"), Ordering::Less);
+    assert_eq!(
+        cmp("2010-08-12T00:00:00Z", "2010-08-12T00:00:05Z"),
+        Ordering::Less
+    );
+    assert_eq!(
+        cmp("2010-08-12T00:00:00Z", "2010-08-12T00:00:00-01:00"),
+        Ordering::Less
+    );
     // the first one is on the 12th in the -01:00 timezone, but convert it to UTC and it's 50
     // minutes past midnight on the 13th.
-    assert_eq!(cmp("2010-08-12T23:50:00-01:00", "2010-08-13"), Ordering::Greater);
+    assert_eq!(
+        cmp("2010-08-12T23:50:00-01:00", "2010-08-13"),
+        Ordering::Greater
+    );
 }
