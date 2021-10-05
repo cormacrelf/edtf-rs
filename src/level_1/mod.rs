@@ -31,11 +31,27 @@ use self::{
 
 pub use packed::Certainty;
 
-// TODO: Hash everywhere
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
 
 /// An EDTF date. Represents a standalone date or one end of a interval.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+///
+/// ### Equality and comparison
+///
+/// Presently, only the default derive-generated code is used for PartialEq/PartialOrd. At least
+/// you can have some kind of implementation, but the results won't necessarily make sense when
+/// some components are masked (unspecified). The current implementation is packed, and the
+/// comparisons are done on the packed representation. You may wish to add a wrapper type with its
+/// own PartialEq/PartialOrd/Eq/Ord implementations with more complex logic.
+///
+/// ```
+/// use edtf::level_1::{Date, Precision};
+/// let d1 = Date::from_precision(Precision::DayOfMonth(2021, 06));
+/// let d2 = Date::from_precision(Precision::Day(2021, 06, 09));
+/// // d1 is a non-specific day in June, but PartialOrd thinks d1 is "less than" d2.
+/// assert!(d1 < d2);
+/// assert!( ! (d1 > d2));
+/// ```
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Date {
     pub(crate) year: PackedYear,
     pub(crate) month: Option<PackedU8>,
