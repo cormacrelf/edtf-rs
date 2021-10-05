@@ -16,10 +16,11 @@ mod validate;
 #[cfg(test)]
 mod test;
 
+use core::cmp::Ordering;
 use core::convert::TryInto;
 use core::fmt;
+use core::num::NonZeroU8;
 use core::str::FromStr;
-use std::num::NonZeroU8;
 
 use crate::helpers;
 use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
@@ -830,4 +831,100 @@ impl fmt::Display for Edtf {
             Self::DateTime(dt) => write!(f, "{}", dt),
         }
     }
+}
+
+fn cmp_edtfs(a: &Edtf, b: &Edtf) -> Ordering {
+    edtf_start_date(a)
+        .cmp(&edtf_start_date(b))
+        .then_with(|| edtf_end_date(a).cmp(&edtf_end_date(b)))
+}
+
+fn edtf_start_date(edtf: &Edtf) -> Option<Date> {
+    match edtf {
+        Edtf::Date(d) => Some(*d),
+        Edtf::Interval(d, _) => Some(*d),
+        Edtf::IntervalFrom(d, _) => Some(*d),
+        // this sorts first, which makes sense
+        Edtf::IntervalTo(_, _) => None,
+        Edtf::DateTime(d) => Some(Date::from_complete(d.date())),
+        Edtf::YYear(y) => {
+            // not super important
+            let yi32: i32 = y.value().try_into().ok()?;
+            Date::from_ymd_opt(yi32, 0, 0)
+        }
+    }
+}
+
+fn edtf_end_date(edtf: &Edtf) -> Option<Date> {
+    match edtf {
+        Edtf::Date(_) | Edtf::DateTime(_) | Edtf::YYear(_) => edtf_start_date(edtf),
+        Edtf::Interval(_, d) => Some(*d),
+        Edtf::IntervalFrom(_, _) => None,
+        Edtf::IntervalTo(_, d) => Some(*d),
+    }
+}
+
+#[cfg(test)]
+fn cmp(a: &str, b: &str) -> Ordering {
+    cmp_edtfs(&Edtf::parse(a).unwrap(), &Edtf::parse(b).unwrap())
+}
+
+#[test]
+fn test_cmp_single() {
+    assert_eq!(cmp("2009", "2010"), Ordering::Less);
+    assert_eq!(cmp("2011", "2010"), Ordering::Greater);
+    assert_eq!(cmp("2010", "2010"), Ordering::Equal);
+    assert_eq!(cmp("2010-08", "2010"), Ordering::Greater);
+    assert_eq!(cmp("2010-08", "2010-09"), Ordering::Less);
+    assert_eq!(cmp("2010-08", "2010-08"), Ordering::Equal);
+}
+
+#[test]
+fn test_cmp_single_interval() {
+    assert_eq!(cmp("2009", "2010/2011"), Ordering::Less);
+    assert_eq!(cmp("2011", "2009/2011"), Ordering::Greater);
+    assert_eq!(cmp("2010", "2010/2010"), Ordering::Equal);
+    assert_eq!(cmp("2010", "2010/2011"), Ordering::Less);
+    assert_eq!(cmp("2010-08", "2010/2011"), Ordering::Greater);
+}
+
+#[test]
+fn test_cmp_double_interval() {
+    // we compare first on the LHS terminal, and then tie break with the RHS
+    // 2009    2010    2011    2012    2013
+    // |---------------|
+    //         |-------|
+    assert_eq!(cmp("2009/2011", "2010/2011"), Ordering::Less);
+    // |---------------|
+    //                 |-------|
+    assert_eq!(cmp("2009/2011", "2011/2012",), Ordering::Less);
+    // |---------------|
+    //         |---------------|
+    assert_eq!(cmp("2009/2011", "2010/2012"), Ordering::Less);
+    // |---------------|
+    //                         |-------|
+    assert_eq!(cmp("2009/2011", "2012/2013"), Ordering::Less);
+    // |---------------|
+    //     |-------|
+    assert_eq!(cmp("2009/2011", "2009-03/2010-07"), Ordering::Less);
+}
+
+#[test]
+fn test_cmp_double_interval_open() {
+    // the LHS terminal being .. means it starts at the beginning of time itself, beats everything
+    // 2009    2010    2011    2012    2013
+    // ----------------|
+    //         |-------|
+    assert_eq!(cmp("../2011", "2010/2011"), Ordering::Less);
+    // ----------------|
+    // ----------------|
+    assert_eq!(cmp("../2011", "../2011"), Ordering::Equal);
+    // ----------------|
+    //         |-------|
+    assert_eq!(cmp("../2011", "2010/2011"), Ordering::Less);
+    // and now for the RHS being open
+    //
+    //         |---------------
+    //         |-------|
+    assert_eq!(cmp("2010/..", "2010/2011",), Ordering::Greater);
 }
