@@ -60,7 +60,7 @@ pub struct Date {
 }
 
 /// Fully represents EDTF Level 1. The representation is lossless.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Edtf {
     /// A full timestamp. `2019-07-15T01:56:00Z`
     DateTime(DateTime),
@@ -833,40 +833,163 @@ impl fmt::Display for Edtf {
     }
 }
 
-fn cmp_edtfs(a: &Edtf, b: &Edtf) -> Ordering {
+impl fmt::Debug for Edtf {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <Self as fmt::Display>::fmt(self, f)
+    }
+}
+
+impl Edtf {
+    /// A type that is sortable in a reasonable way, first using [Edtf::sort_order_start] and tie-breaking
+    /// with [Edtf::sort_order_end]. Use with `Vec::sort_by_key` etc.
+    ///
+    /// Ord is not implemented on Edtf, because Edtf's Eq and Hash implementations usefully
+    /// differentiate between e.g. `2010-08-12` and `2010-08-12T00:00:00Z`, and sorting Edtfs on
+    /// by the points in time they represent is incompatible with that. Edtf's Eq/Hash
+    /// implementations should be thought of as being roughly equivalent to a string comparison on
+    /// the underlying EDTF format, whereas this function sorts on an actual timeline.
+    ///
+    /// ```
+    /// use edtf::level_1::Edtf;
+    /// let a = Edtf::parse("2009-08").unwrap();
+    /// let b = Edtf::parse("2009/2010").unwrap();
+    /// let c = Edtf::parse("2008/2012").unwrap();
+    /// let d = Edtf::parse("../2011").unwrap();
+    /// let e = Edtf::parse("2008/2011").unwrap();
+    /// let mut edtfs = vec![a, b, c, d, e];
+    /// // you can't sort this directly
+    /// // edtfs.sort();
+    /// edtfs.sort_by_key(|a| a.sort_order());
+    /// assert_eq!(edtfs, vec![d, e, c, b, a])
+    /// ```
+    pub fn sort_order(&self) -> SortOrder {
+        SortOrder(*self)
+    }
+
+    /// A sort order that sorts by the EDTF's start point. Use with `Vec::sort_by_key` etc.
+    ///
+    /// An open range on the left is considered to be negative infinity.
+    ///
+    /// ```
+    /// use edtf::level_1::Edtf;
+    /// let a = Edtf::parse("2009-08").unwrap();
+    /// let b = Edtf::parse("2009/2010").unwrap();
+    /// let c = Edtf::parse("2008/2012").unwrap();
+    /// let d = Edtf::parse("../2011").unwrap();
+    /// let e = Edtf::parse("2008/2011").unwrap();
+    /// let mut edtfs = vec![a, b, c, d, e];
+    /// edtfs.sort_by_key(|a| a.sort_order_start());
+    /// assert_eq!(edtfs, vec![d, c, e, b, a])
+    /// ```
+    pub fn sort_order_start(&self) -> SortOrderStart {
+        SortOrderStart(edtf_start_date(self))
+    }
+
+    /// A sort order that sorts by the EDTF's end point. Use with `Vec::sort_by_key` etc.
+    ///
+    /// An open range on the right is considered to be infinity.
+    ///
+    /// ```
+    /// use edtf::level_1::Edtf;
+    /// let a = Edtf::parse("2009-08").unwrap();
+    /// let b = Edtf::parse("2009/2010").unwrap();
+    /// let c = Edtf::parse("2008/2012").unwrap();
+    /// let d = Edtf::parse("../2011").unwrap();
+    /// let e = Edtf::parse("2008/2011").unwrap();
+    /// let mut edtfs = vec![a, b, c, d, e];
+    /// edtfs.sort_by_key(|a| a.sort_order_end());
+    /// assert_eq!(edtfs, vec![a, b, d, e, c])
+    /// ```
+    pub fn sort_order_end(&self) -> SortOrderEnd {
+        SortOrderEnd(edtf_end_date(self))
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct SortOrderStart(Infinite);
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct SortOrderEnd(Infinite);
+pub struct SortOrder(Edtf);
+
+impl Ord for SortOrder {
+    fn cmp(&self, other: &Self) -> Ordering {
+        sort_order(&self.0, &other.0)
+    }
+}
+
+impl PartialOrd for SortOrder {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for SortOrder {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl Eq for SortOrder {}
+
+fn sort_order(a: &Edtf, b: &Edtf) -> Ordering {
     edtf_start_date(a)
         .cmp(&edtf_start_date(b))
         .then_with(|| edtf_end_date(a).cmp(&edtf_end_date(b)))
 }
 
-fn edtf_start_date(edtf: &Edtf) -> Option<Date> {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum Infinite {
+    NegativeInfinity,
+    YYearNegative(i64),
+    Value(Date),
+    YYearPositive(i64),
+    Infinity,
+}
+
+fn edtf_start_date(edtf: &Edtf) -> Infinite {
+    use self::Infinite::*;
     match edtf {
-        Edtf::Date(d) => Some(*d),
-        Edtf::Interval(d, _) => Some(*d),
-        Edtf::IntervalFrom(d, _) => Some(*d),
+        Edtf::Date(d) => Value(*d),
+        Edtf::Interval(d, _) => Value(*d),
+        Edtf::IntervalFrom(d, _) => Value(*d),
         // this sorts first, which makes sense
-        Edtf::IntervalTo(_, _) => None,
-        Edtf::DateTime(d) => Some(Date::from_complete(d.date())),
+        Edtf::IntervalTo(_, _) => NegativeInfinity,
+        Edtf::DateTime(d) => Value(Date::from_complete(d.date())),
         Edtf::YYear(y) => {
-            // not super important
-            let yi32: i32 = y.value().try_into().ok()?;
-            Date::from_ymd_opt(yi32, 0, 0)
+            let val = y.value();
+            if val < i32::MIN as i64 {
+                YYearNegative(val)
+            } else if val > i32::MAX as i64 {
+                YYearPositive(val)
+            } else {
+                let v32 = val as i32;
+                if !Date::year_in_range(v32) {
+                    if v32 < 0 {
+                        YYearNegative(val)
+                    } else {
+                        YYearPositive(val)
+                    }
+                } else {
+                    Value(Date::from_ymd(v32, 0, 0))
+                }
+            }
         }
     }
 }
 
-fn edtf_end_date(edtf: &Edtf) -> Option<Date> {
+fn edtf_end_date(edtf: &Edtf) -> Infinite {
+    use self::Infinite::*;
     match edtf {
         Edtf::Date(_) | Edtf::DateTime(_) | Edtf::YYear(_) => edtf_start_date(edtf),
-        Edtf::Interval(_, d) => Some(*d),
-        Edtf::IntervalFrom(_, _) => None,
-        Edtf::IntervalTo(_, d) => Some(*d),
+        Edtf::Interval(_, d) => Value(*d),
+        Edtf::IntervalFrom(_, _) => Infinity,
+        Edtf::IntervalTo(_, d) => Value(*d),
     }
 }
 
 #[cfg(test)]
 fn cmp(a: &str, b: &str) -> Ordering {
-    cmp_edtfs(&Edtf::parse(a).unwrap(), &Edtf::parse(b).unwrap())
+    sort_order(&Edtf::parse(a).unwrap(), &Edtf::parse(b).unwrap())
 }
 
 #[test]
@@ -928,3 +1051,17 @@ fn test_cmp_double_interval_open() {
     //         |-------|
     assert_eq!(cmp("2010/..", "2010/2011",), Ordering::Greater);
 }
+
+#[test]
+fn test_cmp_yyear() {
+    assert_eq!(cmp("Y-10000", "2010"), Ordering::Less);
+    assert_eq!(cmp("Y10000", "2010"), Ordering::Greater);
+    assert_eq!(cmp("Y10000", "2010/.."), Ordering::Greater);
+    assert_eq!(cmp("Y-10000", "2010/.."), Ordering::Less);
+    assert_eq!(cmp("Y-10000", "../2010"), Ordering::Greater);
+}
+
+// #[test]
+// fn test_cmp_datetime() {
+//     todo!()
+// }
