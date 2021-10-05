@@ -29,9 +29,8 @@ use self::{
     parser::{ParsedEdtf, UnvalidatedDate},
 };
 
-pub use packed::Certainty;
-
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
+pub use packed::Certainty;
 
 /// An EDTF date. Represents a standalone date or one end of a interval.
 ///
@@ -79,12 +78,12 @@ pub enum Edtf {
     IntervalTo(Terminal, Date),
 }
 
-/// Either null string (unknown start/end date) or `..` in an L1 interval.
+/// Either empty string (unknown start/end date) or `..` in an L1 interval.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Terminal {
-    /// null string before or after a slash
+    /// empty string before or after a slash, e.g. `/2019` or `2019/`
     Unknown,
-    /// `..` in eg `../2019` or `2019/..`
+    /// `..` in e.g. `../2019` or `2019/..`
     Open,
 }
 
@@ -129,7 +128,7 @@ pub enum MatchTerminal {
     Fixed(Precision, Certainty),
     /// `..`
     Open,
-    /// Null terminal. `/2020`
+    /// Null terminal: `/2020`
     Unknown,
 }
 
@@ -174,7 +173,7 @@ pub enum Matcher {
     /// The EDTF was a `Y12345` / `Y-12345` scientific year. [Edtf::YYear], [YYear]
     Scientific(i64),
     /// in a `Matcher` returned from [Edtf::as_matcher], one of these is guaranteed to be
-    /// [Terminal::Fixed]
+    /// [MatchTerminal::Fixed]
     Interval(MatchTerminal, MatchTerminal),
     // TODO: ???
     // Interval(Precision, Certainty, Precision, Certainty),
@@ -650,7 +649,7 @@ impl Date {
     }
 }
 
-/// Represents a date component or an -XX mask. Pass-through formatting
+/// Represents a possibly-unspecified date component (month or day) or an -XX mask. Pass-through formatting
 ///
 /// ```
 /// use edtf::level_1::Component::*;
@@ -661,7 +660,9 @@ impl Date {
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Component {
+    /// The component has a value that was specified in the EDTF
     Value(u32),
+    /// An `-XX` masked out component
     Unspecified,
 }
 
@@ -680,6 +681,7 @@ impl fmt::Display for Component {
 }
 
 impl Component {
+    /// Get the value as an option instead of the custom `Component` type.
     pub fn value(self) -> Option<u32> {
         match self {
             Component::Value(v) => Some(v),
