@@ -25,7 +25,6 @@ pub use sorting::{SortOrder, SortOrderEnd, SortOrderStart};
 #[cfg(test)]
 mod test;
 
-use core::cmp::Ordering;
 use core::convert::TryInto;
 use core::fmt;
 use core::num::NonZeroU8;
@@ -131,72 +130,6 @@ impl Season {
     }
 }
 
-/// See [Matcher::Interval]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum MatchTerminal {
-    /// An actual date in an interval
-    Fixed(Precision, Certainty),
-    /// `..`
-    Open,
-    /// Null terminal: `/2020`
-    Unknown,
-}
-
-/// An enum used to conveniently match on an [Edtf].
-///
-/// Note that the various Interval possibilities have some impossible representations, that are
-/// never produced by [Edtf::as_matcher].
-///
-/// ```
-/// use edtf::level_1::Edtf;
-/// use edtf::level_1::{
-///     Matcher, MatchTerminal, Precision,
-///     Certainty::*,
-/// };
-/// assert!(match Edtf::parse("2019/..").unwrap().as_matcher() {
-///     // 2019/..
-///     Matcher::Interval(MatchTerminal::Fixed(Precision::Year(y), Certain), MatchTerminal::Open) => {
-///         assert_eq!(y, 2019);
-///         true
-///     },
-///     // 18XX/20XX
-///     Matcher::Interval(MatchTerminal::Fixed(Precision::Century(1800), Certain), MatchTerminal::Fixed(Precision::Century(2000), Certain)) => false,
-///     // 199X
-///     Matcher::Date(Precision::Decade(1990), Certain) => false,
-///     // 2003%
-///     Matcher::Date(Precision::Year(y), ApproximateUncertain) => false,
-///     Matcher::Interval(MatchTerminal::Unknown, MatchTerminal::Unknown) |
-///     Matcher::Interval(MatchTerminal::Open, MatchTerminal::Open) |
-///     Matcher::Interval(MatchTerminal::Open, MatchTerminal::Unknown) |
-///     Matcher::Interval(MatchTerminal::Unknown, MatchTerminal::Open) => false,
-///     // /2007-09-17
-///     Matcher::Interval(MatchTerminal::Unknown, MatchTerminal::Fixed(Precision::Day(_y, _m, _d), Uncertain)) => false,
-///     _ => panic!("not matched"),
-/// });
-/// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Matcher {
-    /// The EDTF was a single date, no interval or time. Alternative: [Edtf::as_date]
-    Date(Precision, Certainty),
-    /// The EDTF was a date-time stamp. Alternative: [Edtf::as_datetime]
-    DateTime(DateTime),
-    /// The EDTF was a `Y12345` / `Y-12345` scientific year. [Edtf::YYear], [YYear]
-    Scientific(i64),
-    /// in a `Matcher` returned from [Edtf::as_matcher], one of these is guaranteed to be
-    /// [MatchTerminal::Fixed]
-    Interval(MatchTerminal, MatchTerminal),
-    // TODO: ???
-    // Interval(Precision, Certainty, Precision, Certainty),
-    // IntervalFrom(Precision, Certainty, Term2),
-    // IntervalTo(Term2, Precision, Certainty),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Term2 {
-    Open,
-    Unknown,
-}
-
 /// An enum used to conveniently match on a [Date].
 ///
 /// The i32 field in each is a year.
@@ -295,15 +228,6 @@ impl YYear {
             return Err(date);
         }
         Ok(Self(value))
-    }
-}
-
-impl Terminal {
-    fn as_match_terminal(&self) -> MatchTerminal {
-        match self {
-            Terminal::Open => MatchTerminal::Open,
-            Terminal::Unknown => MatchTerminal::Unknown,
-        }
     }
 }
 
