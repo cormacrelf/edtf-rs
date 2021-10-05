@@ -16,3 +16,7 @@ set -x
 
 git cliff -v -u -t "$NEW_VERSION" "${OUTPUT[@]}"
 
+# edit prior to release, for when I inevitably forget to do conventional-commits
+if ! $DRY_RUN; then
+  nvim CHANGELOG.md
+fi
