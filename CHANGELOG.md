@@ -1,6 +1,26 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2021-10-05
+
+### Documentation
+
+- Move sorting code to a new module
+- Reorder impls on L1 Date and Edtf
+- Remove as_matcher example from README
+
+### Features
+
+- Add optional serde interop
+- Edtf::sort_order(_start, _end)
+- Some PartialOrd/Ord implementations
+- New methods to access date components that may be absent or `XX` (unspecified) as `Option<Component>`
+
+### Refactor
+
+- Merge IntervalFromOpen/IntervalFromUnknown (also To)
+- Remove entire as_matcher API
+
 ## [0.1.1] - 2021-09-10
 
 ### Features

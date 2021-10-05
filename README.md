@@ -12,7 +12,7 @@ module level documentation.
 
 ```toml
 [dependencies]
-edtf = "0.1.1"
+edtf = "0.2.0"
 ```
 
 ### Features:
