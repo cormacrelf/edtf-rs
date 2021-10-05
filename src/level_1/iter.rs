@@ -445,10 +445,7 @@ impl Edtf {
     fn interval(&self) -> Option<(Date, Date)> {
         match self {
             // These should work probably
-            Self::IntervalOpenTo(_d)
-            | Self::IntervalUnknownFrom(_d)
-            | Self::IntervalUnknownTo(_d)
-            | Self::IntervalOpenFrom(_d) => None,
+            Self::IntervalTo(_, _d) | Self::IntervalFrom(_d, _) => None,
             Self::Interval(d1, d2) => Some((*d1, *d2)),
             Self::Date(_) => None,
             Self::DateTime(_) => None,

@@ -29,9 +29,8 @@ use self::{
     parser::{ParsedEdtf, UnvalidatedDate},
 };
 
-pub use packed::Certainty;
-
 // TODO: wrap Certainty with one that doesn't expose the implementation detail
+pub use packed::Certainty;
 
 /// An EDTF date. Represents a standalone date or one end of a interval.
 ///
@@ -73,18 +72,23 @@ pub enum Edtf {
     YYear(YYear),
     /// `2018/2019`, `2019-12-31/2020-01-15`, etc
     Interval(Date, Date),
-    /// `2019/..`
-    IntervalOpenFrom(Date),
-    /// `../2019`
-    IntervalOpenTo(Date),
-    /// `2019/`
-    IntervalUnknownFrom(Date),
-    /// `/2019`
-    IntervalUnknownTo(Date),
+    /// `2019/..` (open), `2019/` (unknown)
+    IntervalFrom(Date, Terminal),
+    /// `../2019` (open), `/2019` (unknown)
+    IntervalTo(Terminal, Date),
+}
+
+/// Either empty string (unknown start/end date) or `..` in an L1 interval.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Terminal {
+    /// empty string before or after a slash, e.g. `/2019` or `2019/`
+    Unknown,
+    /// `..` in e.g. `../2019` or `2019/..`
+    Open,
 }
 
 /// A season in [Precision]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Season {
     /// 21
     Spring = 21,
@@ -106,16 +110,25 @@ impl Season {
             _ => panic!("invalid season number {}", value),
         }
     }
+    fn from_u32_opt(value: u32) -> Option<Self> {
+        Some(match value {
+            21 => Self::Spring,
+            22 => Self::Summer,
+            23 => Self::Autumn,
+            24 => Self::Winter,
+            _ => return None,
+        })
+    }
 }
 
 /// See [Matcher::Interval]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Terminal {
+pub enum MatchTerminal {
     /// An actual date in an interval
     Fixed(Precision, Certainty),
     /// `..`
     Open,
-    /// Null terminal. `/2020`
+    /// Null terminal: `/2020`
     Unknown,
 }
 
@@ -127,27 +140,27 @@ pub enum Terminal {
 /// ```
 /// use edtf::level_1::Edtf;
 /// use edtf::level_1::{
-///     Matcher, Terminal, Precision,
+///     Matcher, MatchTerminal, Precision,
 ///     Certainty::*,
 /// };
 /// assert!(match Edtf::parse("2019/..").unwrap().as_matcher() {
 ///     // 2019/..
-///     Matcher::Interval(Terminal::Fixed(Precision::Year(y), Certain), Terminal::Open) => {
+///     Matcher::Interval(MatchTerminal::Fixed(Precision::Year(y), Certain), MatchTerminal::Open) => {
 ///         assert_eq!(y, 2019);
 ///         true
 ///     },
 ///     // 18XX/20XX
-///     Matcher::Interval(Terminal::Fixed(Precision::Century(1800), Certain), Terminal::Fixed(Precision::Century(2000), Certain)) => false,
+///     Matcher::Interval(MatchTerminal::Fixed(Precision::Century(1800), Certain), MatchTerminal::Fixed(Precision::Century(2000), Certain)) => false,
 ///     // 199X
 ///     Matcher::Date(Precision::Decade(1990), Certain) => false,
 ///     // 2003%
 ///     Matcher::Date(Precision::Year(y), ApproximateUncertain) => false,
-///     Matcher::Interval(Terminal::Unknown, Terminal::Unknown) |
-///     Matcher::Interval(Terminal::Open, Terminal::Open) |
-///     Matcher::Interval(Terminal::Open, Terminal::Unknown) |
-///     Matcher::Interval(Terminal::Unknown, Terminal::Open) => false,
+///     Matcher::Interval(MatchTerminal::Unknown, MatchTerminal::Unknown) |
+///     Matcher::Interval(MatchTerminal::Open, MatchTerminal::Open) |
+///     Matcher::Interval(MatchTerminal::Open, MatchTerminal::Unknown) |
+///     Matcher::Interval(MatchTerminal::Unknown, MatchTerminal::Open) => false,
 ///     // /2007-09-17
-///     Matcher::Interval(Terminal::Unknown, Terminal::Fixed(Precision::Day(_y, _m, _d), Uncertain)) => false,
+///     Matcher::Interval(MatchTerminal::Unknown, MatchTerminal::Fixed(Precision::Day(_y, _m, _d), Uncertain)) => false,
 ///     _ => panic!("not matched"),
 /// });
 /// ```
@@ -160,8 +173,8 @@ pub enum Matcher {
     /// The EDTF was a `Y12345` / `Y-12345` scientific year. [Edtf::YYear], [YYear]
     Scientific(i64),
     /// in a `Matcher` returned from [Edtf::as_matcher], one of these is guaranteed to be
-    /// [Terminal::Fixed]
-    Interval(Terminal, Terminal),
+    /// [MatchTerminal::Fixed]
+    Interval(MatchTerminal, MatchTerminal),
     // TODO: ???
     // Interval(Precision, Certainty, Precision, Certainty),
     // IntervalFrom(Precision, Certainty, Term2),
@@ -305,7 +318,7 @@ impl Edtf {
     }
 
     /// Shorthand for matching [Matcher::Interval]
-    pub fn as_interval(&self) -> Option<(Terminal, Terminal)> {
+    pub fn as_interval(&self) -> Option<(MatchTerminal, MatchTerminal)> {
         match self.as_matcher() {
             Matcher::Interval(t1, t2) => Some((t1, t2)),
             _ => None,
@@ -315,16 +328,23 @@ impl Edtf {
     /// Return an enum that's easier to match against for generic intervals. See [Matcher] docs for
     /// details.
     pub fn as_matcher(&self) -> Matcher {
-        use self::{Matcher::*, Terminal::*};
+        use self::Matcher::*;
         match self {
             Self::Date(d) => Date(d.precision(), d.certainty()),
             Self::DateTime(d) => DateTime(*d),
             Self::YYear(d) => Scientific(d.value()),
             Self::Interval(d, d2) => Interval(d.as_terminal(), d2.as_terminal()),
-            Self::IntervalOpenFrom(d) => Interval(d.as_terminal(), Open),
-            Self::IntervalOpenTo(d) => Interval(Open, d.as_terminal()),
-            Self::IntervalUnknownFrom(d) => Interval(d.as_terminal(), Unknown),
-            Self::IntervalUnknownTo(d) => Interval(Unknown, d.as_terminal()),
+            Self::IntervalFrom(d, t) => Interval(d.as_terminal(), t.as_match_terminal()),
+            Self::IntervalTo(t, d) => Interval(t.as_match_terminal(), d.as_terminal()),
+        }
+    }
+}
+
+impl Terminal {
+    fn as_match_terminal(&self) -> MatchTerminal {
+        match self {
+            Terminal::Open => MatchTerminal::Open,
+            Terminal::Unknown => MatchTerminal::Unknown,
         }
     }
 }
@@ -436,6 +456,33 @@ impl Date {
         PackedYear::check_range_ok(year)
     }
 
+    /// Get the year. Dates always have one.
+    pub fn year(&self) -> i32 {
+        let (y, _yf) = self.year.unpack();
+        y
+    }
+
+    /// Get the season. Dates don't always have one.
+    pub fn season(&self) -> Option<Season> {
+        let (m, _mf) = self.month?.unpack();
+        Season::from_u32_opt(m.into())
+    }
+
+    /// Get the month. Dates don't always have one.
+    pub fn month(&self) -> Option<Component> {
+        Component::from_packed_filter(self.month?, 1..=12)
+    }
+
+    /// Get the day. Dates don't always have one.
+    pub fn day(&self) -> Option<Component> {
+        Some(Component::from_packed(self.day?))
+    }
+
+    /// Constructs a generic date from its complete (yyyy-mm-dd) form
+    pub fn from_complete(complete: DateComplete) -> Self {
+        Self::from_ymd(complete.year(), complete.month(), complete.day())
+    }
+
     /// ```
     /// use edtf::level_1::{Date, Certainty, Precision};
     /// let date = Date::from_precision(Precision::Century(1900))
@@ -523,8 +570,8 @@ impl Date {
     }
 
     /// Private.
-    fn as_terminal(&self) -> Terminal {
-        Terminal::Fixed(self.precision(), self.certainty())
+    fn as_terminal(&self) -> MatchTerminal {
+        MatchTerminal::Fixed(self.precision(), self.certainty())
     }
 
     /// If the date represents a specific day, this returns a [DateComplete] for it.
@@ -599,6 +646,67 @@ impl Date {
         };
 
         precision
+    }
+}
+
+/// Represents a possibly-unspecified date component (month or day) or an -XX mask. Pass-through formatting
+///
+/// ```
+/// use edtf::level_1::Component::*;
+/// assert_eq!(format!("{}", Unspecified), "X");
+/// assert_eq!(format!("{:04}", Unspecified), "XXXX");
+/// assert_eq!(format!("{:02}", Value(5)), "05");
+/// assert_eq!(format!("{:04}", Value(5)), "0005");
+/// ```
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Component {
+    /// The component has a value that was specified in the EDTF
+    Value(u32),
+    /// An `-XX` masked out component
+    Unspecified,
+}
+
+impl fmt::Display for Component {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            // pass the formatter through and let people format as they wish
+            Component::Value(val) => val.fmt(f),
+            Component::Unspecified => {
+                // write as many digits as were requested
+                let precision = f.width().unwrap_or(1);
+                write!(f, "{:X<1$}", "", precision)
+            }
+        }
+    }
+}
+
+impl Component {
+    /// Get the value as an option instead of the custom `Component` type.
+    pub fn value(self) -> Option<u32> {
+        match self {
+            Component::Value(v) => Some(v),
+            Component::Unspecified => None,
+        }
+    }
+
+    fn from_packed_filter(packed: PackedU8, range: std::ops::RangeInclusive<u32>) -> Option<Self> {
+        let (val, flags) = packed.unpack();
+        let val = val as u32;
+        if flags.is_masked() {
+            Some(Component::Unspecified)
+        } else if range.contains(&val) {
+            Some(Component::Value(val as u32))
+        } else {
+            None
+        }
+    }
+    fn from_packed(packed: PackedU8) -> Self {
+        let (val, flags) = packed.unpack();
+        if flags.is_masked() {
+            Component::Unspecified
+        } else {
+            Component::Value(val as u32)
+        }
     }
 }
 
@@ -702,15 +810,22 @@ impl fmt::Display for YYear {
     }
 }
 
+impl fmt::Display for Terminal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Open => write!(f, ".."),
+            Self::Unknown => Ok(()),
+        }
+    }
+}
+
 impl fmt::Display for Edtf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Date(d) => write!(f, "{}", d),
             Self::Interval(d, d2) => write!(f, "{}/{}", d, d2),
-            Self::IntervalOpenFrom(d) => write!(f, "{}/..", d),
-            Self::IntervalOpenTo(d) => write!(f, "../{}", d),
-            Self::IntervalUnknownFrom(d) => write!(f, "{}/", d),
-            Self::IntervalUnknownTo(d) => write!(f, "/{}", d),
+            Self::IntervalFrom(d, t) => write!(f, "{}/{}", d, t),
+            Self::IntervalTo(t, d) => write!(f, "{}/{}", t, d),
             Self::YYear(s) => write!(f, "{}", s),
             Self::DateTime(dt) => write!(f, "{}", dt),
         }
