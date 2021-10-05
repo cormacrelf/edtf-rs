@@ -21,6 +21,7 @@ use core::convert::TryInto;
 use core::fmt;
 use core::num::NonZeroU8;
 use core::str::FromStr;
+use chrono::NaiveTime;
 
 use crate::helpers;
 use crate::{DateComplete, DateTime, ParseError, Time, TzOffset};
@@ -289,19 +290,11 @@ impl YYear {
     }
 }
 
-/// ## Creating an [Edtf]
-///
-/// As EDTF is a human-readable format not specifically designed for machines speaking to each
-/// other, you may find that parsing an [Edtf] and reading its contents to be enough API.
 impl Edtf {
     /// Parse a Level 1 EDTF.
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         ParsedEdtf::parse_inner(input).and_then(ParsedEdtf::validate)
     }
-}
-
-/// ## Getting enum variants
-impl Edtf {
     /// If self is an [Edtf::Date], return it
     pub fn as_date(&self) -> Option<Date> {
         match self {
@@ -905,10 +898,21 @@ impl Edtf {
     }
 }
 
+/// See [Edtf::sort_order_start]
+#[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
+#[cfg(feature = "chrono")]
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct SortOrderStart(Infinite);
+
+/// See [Edtf::sort_order_end]
+#[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
+#[cfg(feature = "chrono")]
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct SortOrderEnd(Infinite);
+
+/// See [Edtf::sort_order]
+#[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
+#[cfg(feature = "chrono")]
 pub struct SortOrder(Edtf);
 
 impl Ord for SortOrder {
@@ -941,20 +945,32 @@ fn sort_order(a: &Edtf, b: &Edtf) -> Ordering {
 enum Infinite {
     NegativeInfinity,
     YYearNegative(i64),
-    Value(Date),
+    Value(Date, NaiveTime),
     YYearPositive(i64),
     Infinity,
 }
 
+impl From<Date> for Infinite {
+    fn from(d: Date) -> Self {
+        Self::Value(d, NaiveTime::from_num_seconds_from_midnight(0, 0))
+    }
+}
+
 fn edtf_start_date(edtf: &Edtf) -> Infinite {
     use self::Infinite::*;
-    match edtf {
-        Edtf::Date(d) => Value(*d),
-        Edtf::Interval(d, _) => Value(*d),
-        Edtf::IntervalFrom(d, _) => Value(*d),
+    match *edtf {
+        Edtf::Date(d) => d.into(),
+        Edtf::Interval(d, _) => d.into(),
+        Edtf::IntervalFrom(d, _) => d.into(),
         // this sorts first, which makes sense
         Edtf::IntervalTo(_, _) => NegativeInfinity,
-        Edtf::DateTime(d) => Value(Date::from_complete(d.date())),
+        Edtf::DateTime(d) => {
+            let tz = chrono::Utc;
+            let dt = d.to_chrono(&tz);
+            let date = dt.date().naive_utc();
+            let time = dt.time();
+            Value(date.into(), time)
+        }
         Edtf::YYear(y) => {
             let val = y.value();
             if val < i32::MIN as i64 {
@@ -970,7 +986,7 @@ fn edtf_start_date(edtf: &Edtf) -> Infinite {
                         YYearPositive(val)
                     }
                 } else {
-                    Value(Date::from_ymd(v32, 0, 0))
+                    Date::from_ymd(v32, 0, 0).into()
                 }
             }
         }
@@ -979,11 +995,11 @@ fn edtf_start_date(edtf: &Edtf) -> Infinite {
 
 fn edtf_end_date(edtf: &Edtf) -> Infinite {
     use self::Infinite::*;
-    match edtf {
+    match *edtf {
         Edtf::Date(_) | Edtf::DateTime(_) | Edtf::YYear(_) => edtf_start_date(edtf),
-        Edtf::Interval(_, d) => Value(*d),
+        Edtf::Interval(_, d) => d.into(),
         Edtf::IntervalFrom(_, _) => Infinity,
-        Edtf::IntervalTo(_, d) => Value(*d),
+        Edtf::IntervalTo(_, d) => d.into(),
     }
 }
 
@@ -1061,7 +1077,12 @@ fn test_cmp_yyear() {
     assert_eq!(cmp("Y-10000", "../2010"), Ordering::Greater);
 }
 
-// #[test]
-// fn test_cmp_datetime() {
-//     todo!()
-// }
+#[test]
+fn test_cmp_datetime() {
+    assert_eq!(cmp("2010-08-12T00:00:00Z", "2010-08-12"), Ordering::Equal);
+    assert_eq!(cmp("2010-08-12T00:00:00Z", "2010-08-12T00:00:05Z"), Ordering::Less);
+    assert_eq!(cmp("2010-08-12T00:00:00Z", "2010-08-12T00:00:00-01:00"), Ordering::Less);
+    // the first one is on the 12th in the -01:00 timezone, but convert it to UTC and it's 50
+    // minutes past midnight on the 13th.
+    assert_eq!(cmp("2010-08-12T23:50:00-01:00", "2010-08-13"), Ordering::Greater);
+}
