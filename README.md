@@ -98,56 +98,43 @@ match edtf {
 
 #### Level 1
 
-Edtf is an enum, but there are a fair few variants to avoid representing
-invalid values and the data is packed. Use `edtf.as_matcher()` to get a
-convenient representation.
-
 ```rust
-use edtf::level_1::{Date, Edtf, Matcher, Certainty, Precision, MatchTerminal};
+use edtf::level_1::{Date, Edtf, Certainty, Precision, Terminal};
 use edtf::{DateTime, Time, DateComplete, TzOffset};
 
 let edtf = Edtf::parse("2021-07-15");
 assert_eq!(edtf, Ok(Edtf::Date(Date::from_ymd(2021, 07, 15))));
 
 let edtf = Edtf::parse("2019-01-XX?").unwrap();
-match edtf.as_matcher() {
-    Matcher::Date(precision, certainty) => {
+match edtf {
+    Edtf::Date(date) => {
         // precision deconstructs a date into variants like
         // 2019, 2019-01, 2019-01-01, 20XX, 201X, 2019-XX, 2019-01-XX, 2019-XX-XX.
         // certainty is the ? (Uncertain) / ~ (Approximate) / % (Both) value.
-
-        // You can get this same info through
-        // `Date::precision(&self) -> (Precision, Certainty)`
-        assert_eq!(precision, Precision::DayOfMonth(2019, 01));
-        assert_eq!(certainty, Certainty::Uncertain);
+        assert_eq!(date.precision(), Precision::DayOfMonth(2019, 01));
+        assert_eq!(date.certainty(), Certainty::Uncertain);
     }
     _ => panic!("not matched")
 }
 
 let edtf = Edtf::parse("2019-XX/..").unwrap();
-match edtf.as_matcher() {
-    Matcher::Interval(from, to) => {
-        match from {
-            MatchTerminal::Fixed(precision, certainty) => {
-                assert_eq!(precision, Precision::MonthOfYear(2019));
-                assert_eq!(certainty, Certainty::Certain);
-            }
-            MatchTerminal::Open | MatchTerminal::Unknown => panic!("not matched"),
-        }
-        assert_eq!(to, MatchTerminal::Open);
+match edtf {
+    Edtf::IntervalFrom(from_date, terminal) => {
+        assert_eq!(from_date.precision(), Precision::MonthOfYear(2019));
+        assert_eq!(terminal, Terminal::Open);
     }
     _ => panic!("not matched"),
 }
 
 let edtf = Edtf::parse("Y-12000").unwrap();
-match edtf.as_matcher() {
-    Matcher::Scientific(-12000) => {},
+match edtf {
+    Edtf::YYear(yy) => assert_eq!(yy.value(), -12000i64),
     _ => panic!("not matched"),
 }
 
 let edtf = Edtf::parse("2012-11-30T12:04:56Z").unwrap();
-match edtf.as_matcher() {
-    Matcher::DateTime(dt) => {
+match edtf {
+    Edtf::DateTime(dt) => {
         assert_eq!(dt.date(), DateComplete::from_ymd(2012, 11, 30));
         assert_eq!(dt.time(), Time::from_hmsz(12, 04, 56, TzOffset::Utc));
     },

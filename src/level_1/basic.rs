@@ -21,28 +21,6 @@ impl Edtf {
             _ => None,
         }
     }
-
-    /// Shorthand for matching [Matcher::Interval]
-    pub fn as_interval(&self) -> Option<(MatchTerminal, MatchTerminal)> {
-        match self.as_matcher() {
-            Matcher::Interval(t1, t2) => Some((t1, t2)),
-            _ => None,
-        }
-    }
-
-    /// Return an enum that's easier to match against for generic intervals. See [Matcher] docs for
-    /// details.
-    pub fn as_matcher(&self) -> Matcher {
-        use self::Matcher::*;
-        match self {
-            Self::Date(d) => Date(d.precision(), d.certainty()),
-            Self::DateTime(d) => DateTime(*d),
-            Self::YYear(d) => Scientific(d.value()),
-            Self::Interval(d, d2) => Interval(d.as_terminal(), d2.as_terminal()),
-            Self::IntervalFrom(d, t) => Interval(d.as_terminal(), t.as_match_terminal()),
-            Self::IntervalTo(t, d) => Interval(t.as_match_terminal(), d.as_terminal()),
-        }
-    }
 }
 
 /// # Creating a [Date]
@@ -229,11 +207,6 @@ impl Date {
             day: self.day,
             certainty,
         }
-    }
-
-    /// Private.
-    fn as_terminal(&self) -> MatchTerminal {
-        MatchTerminal::Fixed(self.precision(), self.certainty())
     }
 
     /// If the date represents a specific day, this returns a [DateComplete] for it.
