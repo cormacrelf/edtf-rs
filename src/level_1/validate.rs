@@ -12,11 +12,8 @@ use super::Terminal;
 use super::{
     packed::{Certainty, DMFlags, DMMask, PackedInt, PackedU8, PackedYear, YearMask},
     parser::{ParsedEdtf, UnvalidatedDMEnum, UnvalidatedDate},
-    Date, Edtf, YYear,
+    Date, Edtf, Precision, Season, YYear,
 };
-
-#[cfg(test)]
-use super::Precision;
 
 use crate::DateTime;
 
@@ -32,7 +29,14 @@ impl ParsedEdtf {
                 // }
                 Edtf::YYear(YYear::new_opt(y).ok_or(ParseError::Invalid)?)
             }
-            Self::Interval(d, d2) => Edtf::Interval(d.validate()?, d2.validate()?),
+            Self::Interval(d, d2) => {
+                let (d, d2) = (d.validate()?, d2.validate()?);
+                // An interval cannot end before it starts.
+                if span(d).0 > span(d2).1 {
+                    return Err(OutOfRange);
+                }
+                Edtf::Interval(d, d2)
+            }
             Self::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
             Self::IntervalOpenFrom(start) => Edtf::IntervalFrom(start.validate()?, Terminal::Open),
             Self::IntervalUnknownFrom(start) => {
@@ -41,6 +45,33 @@ impl ParsedEdtf {
             Self::IntervalOpenTo(end) => Edtf::IntervalTo(Terminal::Open, end.validate()?),
             Self::IntervalUnknownTo(end) => Edtf::IntervalTo(Terminal::Unknown, end.validate()?),
         })
+    }
+}
+
+type Ymd = (i32, u32, u32);
+
+/// The earliest and the latest day that `date` can mean, as (year, month, day).
+///
+/// Where the meaning is ambiguous (the sign of a masked year `00XX`, a winter
+/// straddling the turn of a year, the length of a month), the span is widened,
+/// never narrowed, so a valid interval is never refused.
+fn span(date: Date) -> (Ymd, Ymd) {
+    let years = |first: i32, last: i32| ((first, 1, 1), (last, 12, 31));
+    match date.precision() {
+        // `19XX` is 1900..=1999 and `-19XX` is -1999..=-1900.
+        Precision::Century(y) if y > 0 => years(y, y + 99),
+        Precision::Century(y) if y < 0 => years(y - 99, y),
+        Precision::Century(_) => years(-99, 99),
+        Precision::Decade(y) if y > 0 => years(y, y + 9),
+        Precision::Decade(y) if y < 0 => years(y - 9, y),
+        Precision::Decade(_) => years(-9, 9),
+        Precision::Season(y, Season::Winter) => years(y - 1, y + 1),
+        Precision::Year(y)
+        | Precision::Season(y, _)
+        | Precision::MonthOfYear(y)
+        | Precision::DayOfYear(y) => years(y, y),
+        Precision::Month(y, m) | Precision::DayOfMonth(y, m) => ((y, m, 1), (y, m, 31)),
+        Precision::Day(y, m, d) => ((y, m, d), (y, m, d)),
     }
 }
 

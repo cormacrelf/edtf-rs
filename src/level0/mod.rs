@@ -20,7 +20,19 @@ impl Edtf {
     fn validate(parsed: ParsedEdtf) -> Result<Self, ParseError> {
         let edtf = match parsed {
             ParsedEdtf::Date(d) => Edtf::Date(d.validate()?),
-            ParsedEdtf::Interval(d, d2) => Edtf::Interval(d.validate()?, d2.validate()?),
+            ParsedEdtf::Interval(d, d2) => {
+                let (d, d2) = (d.validate()?, d2.validate()?);
+                // An interval cannot end before it starts. A reduced precision
+                // date is compared on the whole span it means, so
+                // `2004-06-30/2004-06` is fine.
+                let or = |value: u32, absent: u32| if value == 0 { absent } else { value };
+                let earliest = (d.year(), or(d.month(), 1), or(d.day(), 1));
+                let latest = (d2.year(), or(d2.month(), 12), or(d2.day(), 31));
+                if earliest > latest {
+                    return Err(ParseError::OutOfRange);
+                }
+                Edtf::Interval(d, d2)
+            }
             ParsedEdtf::DateTime(d, t) => Edtf::DateTime(DateTime::validate(d, t)?),
         };
         Ok(edtf)
